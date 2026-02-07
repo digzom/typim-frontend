@@ -81,6 +81,14 @@ body[data-theme="dark"] .ambient {
     radial-gradient(circle at 30% 90%, rgba(66, 122, 111, 0.12), transparent 40%);
 }
 
+body[data-theme="dark"] .action-menu {
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.4);
+}
+
+body[data-theme="dark"] .pane {
+  border-color: rgba(255, 255, 255, 0.04);
+}
+
 .app {
   position: relative;
   z-index: 1;
@@ -114,8 +122,9 @@ body[data-theme="dark"] .ambient {
   align-items: center;
   justify-content: space-between;
   gap: 16px;
-  padding-bottom: 16px;
+  padding-bottom: 14px;
   border-bottom: 1px solid var(--border);
+  opacity: 0.9;
 }
 
 .title-wrap {
@@ -183,9 +192,9 @@ button:active {
 
 .pane {
   background: var(--panel-soft);
-  border: 1px solid var(--border);
-  border-radius: 18px;
-  padding: 20px;
+  border: 1px solid rgba(30, 27, 22, 0.04);
+  border-radius: 16px;
+  padding: 24px;
   overflow: hidden;
   display: flex;
   min-height: 0;
@@ -262,22 +271,49 @@ button:active {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  font-size: 0.85rem;
+  font-size: 0.82rem;
   color: var(--muted);
   border-top: 1px solid var(--border);
-  padding-top: 12px;
-  gap: 12px;
+  padding-top: 10px;
+  opacity: 0.7;
 }
 
-.status-actions {
+.action-menu {
+  position: absolute;
+  top: 70px;
+  right: 28px;
+  background: var(--panel-strong);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  padding: 8px;
+  display: none;
+  flex-direction: column;
+  gap: 4px;
+  box-shadow: 0 12px 32px rgba(30, 27, 22, 0.18);
+  z-index: 3;
+  min-width: 160px;
+}
+
+.action-menu.show {
   display: flex;
-  gap: 8px;
-  flex-wrap: wrap;
 }
 
-.status-actions .small {
-  padding: 6px 12px;
-  font-size: 0.8rem;
+.menu-item {
+  text-align: left;
+  padding: 10px 14px;
+  border: none;
+  background: transparent;
+  border-radius: 10px;
+  font-size: 0.9rem;
+  color: var(--ink);
+  cursor: pointer;
+  transition: background 0.15s ease;
+}
+
+.menu-item:hover {
+  background: var(--panel-soft);
+  transform: none;
+  box-shadow: none;
 }
 
 .focus-hint {
@@ -306,7 +342,8 @@ button:active {
 
 .focus .topbar,
 .focus .statusbar,
-.focus .preview-pane {
+.focus .preview-pane,
+.focus .action-menu {
   display: none;
 }
 

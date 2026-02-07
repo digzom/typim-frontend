@@ -46,14 +46,22 @@
           />
         </div>
         <div class="actions">
-          <button id="open-btn" class="ghost">Open</button>
-          <button id="save-btn" class="ghost">Save</button>
-          <button id="split-btn" class="ghost">Single</button>
-          <button id="vim-btn" class="ghost">Vim: On</button>
           <button id="focus-btn" class="ghost">Focus</button>
-          <button id="share-btn" class="ghost">Share</button>
+          <button id="menu-btn" class="ghost" aria-expanded="false" aria-controls="action-menu">Menu</button>
         </div>
       </header>
+
+      <nav id="action-menu" class="action-menu" aria-hidden="true">
+        <button id="menu-open" class="menu-item">Open</button>
+        <button id="menu-save" class="menu-item">Save</button>
+        <button id="menu-split" class="menu-item">Split</button>
+        <button id="menu-vim" class="menu-item">Vim: Off</button>
+        <button id="menu-theme" class="menu-item">Theme: Light</button>
+        <button id="menu-fonts" class="menu-item">Fonts</button>
+        <button id="menu-shortcuts" class="menu-item">Shortcuts</button>
+        <button id="menu-layout" class="menu-item">Layout</button>
+        <button id="menu-share" class="menu-item">Share</button>
+      </nav>
 
       <section class="workspace">
         <div class="pane editor-pane">
@@ -66,12 +74,6 @@
 
       <footer class="statusbar">
         <span id="status-left">0 words</span>
-        <div class="status-actions">
-          <button id="theme-btn" class="ghost small">Theme: Light</button>
-          <button id="font-btn" class="ghost small">Fonts</button>
-          <button id="shortcuts-btn" class="ghost small">Shortcuts</button>
-          <button id="layout-btn" class="ghost small">Layout</button>
-        </div>
         <span id="status-right">0 chars · 0 lines</span>
       </footer>
 
