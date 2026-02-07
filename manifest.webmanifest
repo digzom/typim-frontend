@@ -1,0 +1,28 @@
+{
+  "name": "Typim",
+  "short_name": "Typim",
+  "description": "Focused markdown editor with live preview.",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#151311",
+  "theme_color": "#1f1c18",
+  "icons": [
+    {
+      "src": "/icons/typim-192.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "/icons/typim-512.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    },
+    {
+      "src": "/icons/typim-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    }
+  ]
+}

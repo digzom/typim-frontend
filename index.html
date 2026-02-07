@@ -1,0 +1,216 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Typim</title>
+    <meta name="theme-color" content="#1f1c18" />
+    <link rel="manifest" href="/manifest.webmanifest" />
+    <link rel="icon" href="/icons/typim-192.png" />
+    <link rel="apple-touch-icon" href="/icons/typim-192.png" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@300;400;500;600&family=IBM+Plex+Serif:wght@300;400;600&family=IBM+Plex+Mono:wght@400;500&display=swap"
+      rel="stylesheet"
+    />
+    <link
+      rel="stylesheet"
+      href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/codemirror.min.css"
+    />
+    <link
+      rel="stylesheet"
+      href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/theme/xq-light.min.css"
+    />
+    <link
+      rel="stylesheet"
+      href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/theme/xq-dark.min.css"
+    />
+    <link
+      rel="stylesheet"
+      href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.10.0/styles/github-dark.min.css"
+    />
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <div class="ambient"></div>
+    <main class="app">
+      <header class="topbar">
+        <div class="title-wrap">
+          <input
+            id="doc-title"
+            class="doc-title"
+            type="text"
+            value="Untitled"
+            aria-label="Document title"
+          />
+        </div>
+        <div class="actions">
+          <button id="open-btn" class="ghost">Open</button>
+          <button id="save-btn" class="ghost">Save</button>
+          <button id="split-btn" class="ghost">Single</button>
+          <button id="vim-btn" class="ghost">Vim: On</button>
+          <button id="focus-btn" class="ghost">Focus</button>
+          <button id="share-btn" class="ghost">Share</button>
+        </div>
+      </header>
+
+      <section class="workspace">
+        <div class="pane editor-pane">
+          <div id="editor" class="editor" aria-label="Markdown editor"></div>
+        </div>
+        <div class="pane preview-pane">
+          <article id="preview" class="preview"></article>
+        </div>
+      </section>
+
+      <footer class="statusbar">
+        <span id="status-left">0 words</span>
+        <div class="status-actions">
+          <button id="theme-btn" class="ghost small">Theme: Light</button>
+          <button id="font-btn" class="ghost small">Fonts</button>
+          <button id="shortcuts-btn" class="ghost small">Shortcuts</button>
+          <button id="layout-btn" class="ghost small">Layout</button>
+        </div>
+        <span id="status-right">0 chars · 0 lines</span>
+      </footer>
+
+      <div id="focus-hint" class="focus-hint">Focus mode · Ctrl+Esc to exit</div>
+      <div id="share-modal" class="modal" aria-hidden="true">
+        <div class="modal-card" role="dialog" aria-modal="true">
+          <div class="modal-header">
+            <h2>Share note</h2>
+            <button id="share-close" class="ghost">Close</button>
+          </div>
+          <div class="modal-body">
+            <label class="field">
+              <span>Share type</span>
+              <select id="share-type">
+                <option value="static">Static (snapshot)</option>
+                <option value="live">Live (auto-update)</option>
+              </select>
+            </label>
+            <label class="field">
+              <span>Privacy</span>
+              <select id="share-privacy">
+                <option value="secret">Secret</option>
+                <option value="public">Public</option>
+              </select>
+            </label>
+            <div class="share-actions">
+              <button id="share-create" class="ghost">Create link</button>
+              <button id="share-update" class="ghost" disabled>Update live link</button>
+            </div>
+            <div class="share-result">
+              <input id="share-url" type="text" readonly placeholder="Share URL" />
+              <button id="share-copy" class="ghost" disabled>Copy</button>
+            </div>
+            <p id="share-error" class="share-error"></p>
+            <p class="share-hint">Links expire in 4 hours.</p>
+          </div>
+        </div>
+      </div>
+      <div id="font-modal" class="modal" aria-hidden="true">
+        <div class="modal-card" role="dialog" aria-modal="true">
+          <div class="modal-header">
+            <h2>Fonts</h2>
+            <button id="font-close" class="ghost">Close</button>
+          </div>
+          <div class="modal-body">
+            <label class="field">
+              <span>Body font</span>
+              <select id="font-body">
+                <option value="serif">IBM Plex Serif</option>
+                <option value="sans">IBM Plex Sans</option>
+              </select>
+            </label>
+            <label class="field">
+              <span>Monospace font</span>
+              <select id="font-mono">
+                <option value="plex">IBM Plex Mono</option>
+                <option value="system">System Mono</option>
+              </select>
+            </label>
+            <p class="modal-hint">Fonts are saved locally.</p>
+          </div>
+        </div>
+      </div>
+      <div id="shortcuts-modal" class="modal" aria-hidden="true">
+        <div class="modal-card" role="dialog" aria-modal="true">
+          <div class="modal-header">
+            <h2>Shortcuts</h2>
+            <button id="shortcuts-close" class="ghost">Close</button>
+          </div>
+          <div class="modal-body">
+            <div class="shortcut-list">
+              <div class="shortcut-row">
+                <span class="shortcut-key">Ctrl/Cmd + O</span>
+                <span class="shortcut-action">Open file</span>
+              </div>
+              <div class="shortcut-row">
+                <span class="shortcut-key">Ctrl/Cmd + S</span>
+                <span class="shortcut-action">Save file</span>
+              </div>
+              <div class="shortcut-row">
+                <span class="shortcut-key">Ctrl/Cmd + Shift + S</span>
+                <span class="shortcut-action">Share note</span>
+              </div>
+              <div class="shortcut-row">
+                <span class="shortcut-key">Ctrl/Cmd + \\</span>
+                <span class="shortcut-action">Single/Split view</span>
+              </div>
+              <div class="shortcut-row">
+                <span class="shortcut-key">Ctrl/Cmd + Shift + F</span>
+                <span class="shortcut-action">Focus mode</span>
+              </div>
+              <div class="shortcut-row">
+                <span class="shortcut-key">Ctrl + Esc</span>
+                <span class="shortcut-action">Exit focus mode</span>
+              </div>
+              <div class="shortcut-row">
+                <span class="shortcut-key">Ctrl/Cmd + Shift + V</span>
+                <span class="shortcut-action">Toggle Vim</span>
+              </div>
+              <div class="shortcut-row">
+                <span class="shortcut-key">Ctrl/Cmd + Shift + D</span>
+                <span class="shortcut-action">Toggle theme</span>
+              </div>
+              <div class="shortcut-row">
+                <span class="shortcut-key">Ctrl/Cmd + Shift + M</span>
+                <span class="shortcut-action">Fonts</span>
+              </div>
+              <div class="shortcut-row">
+                <span class="shortcut-key">Ctrl/Cmd + /</span>
+                <span class="shortcut-action">Shortcuts</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div id="layout-modal" class="modal" aria-hidden="true">
+        <div class="modal-card" role="dialog" aria-modal="true">
+          <div class="modal-header">
+            <h2>Layout</h2>
+            <button id="layout-close" class="ghost">Close</button>
+          </div>
+          <div class="modal-body">
+            <label class="field">
+              <span>Container width</span>
+              <input id="layout-width" type="range" min="980" max="1600" step="20" />
+            </label>
+            <p class="modal-hint">Wider layouts work best on large screens.</p>
+          </div>
+        </div>
+      </div>
+    </main>
+
+    <input id="file-input" type="file" accept=".md,.markdown,.txt" hidden />
+
+    <script src="https://cdn.jsdelivr.net/npm/markdown-it@14.1.0/dist/markdown-it.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/codemirror.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/mode/markdown/markdown.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/keymap/vim.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.10.0/highlight.min.js"></script>
+    <script src="app.js"></script>
+  </body>
+</html>
