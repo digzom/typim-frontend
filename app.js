@@ -61,11 +61,11 @@ const shareState = {
 
 const fontOptions = {
   body: {
-    serif: '"IBM Plex Serif", "Georgia", serif',
-    sans: '"IBM Plex Sans", "Segoe UI", sans-serif',
+    serif: '"Source Serif 4", "Iowan Old Style", "Georgia", serif',
+    sans: '"Source Sans 3", "Noto Sans", "Helvetica Neue", sans-serif',
   },
   mono: {
-    plex: '"IBM Plex Mono", "SFMono-Regular", "Menlo", "Consolas", monospace',
+    plex: '"Source Code Pro", "IBM Plex Mono", "Menlo", "Consolas", monospace',
     system: 'ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace',
   },
 };
@@ -97,7 +97,7 @@ md.set({
 // ============================================================
 // Editor Setup
 // ============================================================
-const starter = `# Typim\n\nWelcome to a focused markdown space.\n\n## Quick start\n- Write markdown on the left\n- Preview updates instantly on the right\n- Save with Ctrl+S or Cmd+S\n\n> Tip: Use **bold**, _italic_, and inline code with single backticks.\n\n### Task list\n- [x] Clean layout\n- [ ] Your next idea\n\n\`\`\`js\nfunction hello() {\n  return "Hello";\n}\n\`\`\`\n`;
+const starter = `# Typim\n\nWelcome to a focused markdown space.\n\n## Quick start\n- Write markdown on the left\n- Preview updates instantly on the right\n- Save with Ctrl+S or Cmd+S\n\n> Tip: Use **bold**, _italic_, and inline code with single backticks.\n\n### Task list\n- [x] Clean layout\n- [ ] Your next idea\n\n### Dev joke\nWhy do programmers prefer dark mode?\n\nBecause light attracts bugs! 🐛\n\n\`\`\`js\nfunction hello() {\n  return "Hello";\n}\n\`\`\`\n`;
 
 const editor = window.CodeMirror(editorRoot, {
   value: starter,
@@ -136,12 +136,12 @@ const applyTheme = (theme) => {
     document.body.setAttribute("data-theme", "dark");
     menuTheme.textContent = "Theme: Dark";
     editor.setOption("theme", "xq-dark");
-    if (themeMeta) themeMeta.setAttribute("content", "#1f1c18");
+    if (themeMeta) themeMeta.setAttribute("content", "#1f1f1f");
   } else {
     document.body.removeAttribute("data-theme");
     menuTheme.textContent = "Theme: Light";
     editor.setOption("theme", "xq-light");
-    if (themeMeta) themeMeta.setAttribute("content", "#f2efe9");
+    if (themeMeta) themeMeta.setAttribute("content", "#f2f2f2");
   }
   localStorage.setItem("theme", theme);
 };
