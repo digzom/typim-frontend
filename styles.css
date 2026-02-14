@@ -21,6 +21,7 @@
   --hint-bg: rgba(32, 32, 32, 0.88);
   --hint-ink: #f6f6f6;
   --danger: #b54236;
+  --pane-inline-padding: 56px;
 }
 
 body[data-theme="dark"] {
@@ -254,7 +255,7 @@ body.resizing * {
 }
 
 .editor-pane .CodeMirror-scroll {
-  padding: 36px 56px 64px;
+  padding: 36px var(--pane-inline-padding) 64px;
 }
 
 .editor-pane .CodeMirror-gutters {
@@ -270,7 +271,7 @@ body.resizing * {
   width: 100%;
   height: 100%;
   overflow-y: auto;
-  padding: 36px 56px 64px;
+  padding: 36px var(--pane-inline-padding) 64px;
   max-width: var(--container-width, 900px);
   margin: 0 auto;
 }
@@ -575,7 +576,7 @@ body.resizing * {
 
   .editor-pane .CodeMirror-scroll,
   .preview {
-    padding: 28px 20px 48px;
+    padding: 28px var(--pane-inline-padding) 48px;
   }
 
   .preview-pane {

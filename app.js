@@ -60,11 +60,13 @@ const SPLIT_RATIO_MIN = 0.3;
 const SPLIT_RATIO_MAX = 0.7;
 const SPLIT_KEYBOARD_STEP = 0.02;
 const SPLIT_KEYBOARD_STEP_LARGE = 0.05;
+const LIVE_MD_KEY = "enableLiveMarkdown";
 
 // Split resizer runtime state
 let splitRatio = SPLIT_RATIO_DEFAULT;
 let isResizing = false;
 let activePointerId = null;
+let liveMarkdownMarks = [];
 
 const shareState = {
   id: null,
@@ -287,6 +289,182 @@ const updateResizerVisibility = () => {
     splitResizer.setAttribute("hidden", "");
     splitResizer.setAttribute("tabindex", "-1");
   }
+};
+
+const computeWidthTokens = () => {
+  if (isMobile()) {
+    return { maxWidthPx: "100%", paddingInlinePx: "20px" };
+  }
+
+  if (document.body.classList.contains("focus")) {
+    return { maxWidthPx: "1200px", paddingInlinePx: "56px" };
+  }
+
+  if (document.body.classList.contains("split-off")) {
+    return { maxWidthPx: "1200px", paddingInlinePx: "56px" };
+  }
+
+  return { maxWidthPx: "900px", paddingInlinePx: "40px" };
+};
+
+const applyWidthTokens = () => {
+  const tokens = computeWidthTokens();
+  document.documentElement.style.setProperty("--container-width", tokens.maxWidthPx);
+  document.documentElement.style.setProperty("--pane-inline-padding", tokens.paddingInlinePx);
+};
+
+const handleResizerPointerDown = (event) => {
+  if (!isSplitResizable()) return;
+  isResizing = true;
+  activePointerId = event.pointerId;
+  splitResizer.setPointerCapture(activePointerId);
+  document.body.classList.add("resizing");
+  event.preventDefault();
+};
+
+const handleResizerPointerMove = (event) => {
+  if (!isResizing || event.pointerId !== activePointerId) return;
+  const workspace = document.querySelector(".workspace");
+  const rect = workspace.getBoundingClientRect();
+  const ratio = (event.clientX - rect.left) / rect.width;
+  applySplitRatio(ratio, { persist: false });
+};
+
+const stopResizing = (event) => {
+  if (!isResizing) return;
+  if (event && event.pointerId !== undefined && event.pointerId !== activePointerId) return;
+  isResizing = false;
+  if (activePointerId !== null && splitResizer.hasPointerCapture(activePointerId)) {
+    splitResizer.releasePointerCapture(activePointerId);
+  }
+  activePointerId = null;
+  document.body.classList.remove("resizing");
+  localStorage.setItem(SPLIT_RATIO_KEY, String(splitRatio));
+};
+
+const handleResizerKeydown = (event) => {
+  if (!isSplitResizable()) return;
+  let nextRatio = splitRatio;
+  const step = event.shiftKey ? SPLIT_KEYBOARD_STEP_LARGE : SPLIT_KEYBOARD_STEP;
+
+  switch (event.key) {
+    case "ArrowLeft":
+      nextRatio -= step;
+      break;
+    case "ArrowRight":
+      nextRatio += step;
+      break;
+    case "Home":
+      nextRatio = SPLIT_RATIO_MIN;
+      break;
+    case "End":
+      nextRatio = SPLIT_RATIO_MAX;
+      break;
+    default:
+      return;
+  }
+
+  event.preventDefault();
+  applySplitRatio(nextRatio);
+};
+
+const clearLiveMarkdownMarks = () => {
+  liveMarkdownMarks.forEach((mark) => mark.clear());
+  liveMarkdownMarks = [];
+};
+
+const classifyLine = (lineText) => {
+  if (/^#{1,6}\s+/.test(lineText)) return `cm-lm-h${Math.min(6, (lineText.match(/^#+/) || [""])[0].length)}`;
+  if (/^\s*([-*+])\s+/.test(lineText)) return "cm-lm-ul";
+  if (/^\s*\d+\.\s+/.test(lineText)) return "cm-lm-ol";
+  if (/^>\s+/.test(lineText)) return "cm-lm-blockquote";
+  if (/^\s*([-*_])(?:\s*\1){2,}\s*$/.test(lineText)) return "cm-lm-hr";
+  if (/^```/.test(lineText) || lmInCodeFence) return "cm-lm-code-fence";
+  return null;
+};
+
+const refreshLiveMarkdownStyling = () => {
+  clearLiveMarkdownMarks();
+  if (!enableLiveMarkdown) return;
+
+  const lineCount = editor.lineCount();
+  lmInCodeFence = false;
+  for (let i = 0; i < lineCount; i += 1) {
+    const text = editor.getLine(i);
+    if (/^```/.test(text)) {
+      lmInCodeFence = !lmInCodeFence;
+      liveMarkdownMarks.push(
+        editor.markText({ line: i, ch: 0 }, { line: i, ch: text.length }, { className: "cm-lm-code-fence" }),
+      );
+      continue;
+    }
+    const className = classifyLine(text);
+    if (className) {
+      liveMarkdownMarks.push(
+        editor.markText({ line: i, ch: 0 }, { line: i, ch: text.length }, { className }),
+      );
+    }
+  }
+};
+
+const maybeTransformLiveMarkdown = (_instance, changeObj) => {
+  if (!enableLiveMarkdown || vimEnabled) return;
+  if (!changeObj || changeObj.origin !== "+input") return;
+  const inserted = (changeObj.text || []).join("\n");
+  if (inserted !== " ") return;
+
+  const cursor = editor.getCursor();
+  const line = cursor.line;
+  const lineText = editor.getLine(line);
+
+  const transforms = [
+    [/^#\s\s+/, "# "],
+    [/^##\s\s+/, "## "],
+    [/^###\s\s+/, "### "],
+    [/^####\s\s+/, "#### "],
+    [/^#####\s\s+/, "##### "],
+    [/^######\s\s+/, "###### "],
+    [/^>\s\s+/, "> "],
+    [/^-\s\s+/, "- "],
+    [/^\*\s\s+/, "* "],
+    [/^\d+\.\s\s+/, (match) => match.replace(/\s\s+$/, " ")],
+  ];
+
+  for (const [pattern, replacement] of transforms) {
+    if (pattern.test(lineText)) {
+      const replaced = typeof replacement === "function" ? lineText.replace(pattern, replacement) : lineText.replace(pattern, replacement);
+      editor.replaceRange(replaced, { line, ch: 0 }, { line, ch: lineText.length }, "+livemd");
+      editor.setCursor({ line, ch: replaced.length });
+      break;
+    }
+  }
+};
+
+const toggleLiveMarkdown = () => {
+  enableLiveMarkdown = !enableLiveMarkdown;
+  localStorage.setItem(LIVE_MD_KEY, enableLiveMarkdown ? "on" : "off");
+  syncLiveMdButton();
+  refreshLiveMarkdownStyling();
+};
+
+const initLayout = () => {
+  readStoredSplitRatio();
+  applySplitRatio(splitRatio, { persist: false });
+  applyWidthTokens();
+  updateResizerVisibility();
+
+  splitResizer.addEventListener("pointerdown", handleResizerPointerDown);
+  splitResizer.addEventListener("pointermove", handleResizerPointerMove);
+  splitResizer.addEventListener("pointerup", stopResizing);
+  splitResizer.addEventListener("pointercancel", stopResizing);
+  splitResizer.addEventListener("keydown", handleResizerKeydown);
+
+  const storedLiveMd = localStorage.getItem(LIVE_MD_KEY);
+  enableLiveMarkdown = storedLiveMd === "on";
+  syncLiveMdButton();
+  editor.on("changes", refreshLiveMarkdownStyling);
+  editor.on("inputRead", maybeTransformLiveMarkdown);
+  refreshLiveMarkdownStyling();
 };
 
 // ============================================================
@@ -609,6 +787,12 @@ menuShare.addEventListener("click", () => {
   openShareModal();
 });
 
+menuLiveMd.addEventListener("click", () => {
+  closeMenu();
+  toggleLiveMarkdown();
+  editor.focus();
+});
+
 // ============================================================
 // Split View
 // ============================================================
@@ -632,12 +816,14 @@ const toggleSplit = () => {
   }
   updateSplitButton();
   updateResizerVisibility();
+  applyWidthTokens();
   editor.refresh();
 };
 
 window.addEventListener("resize", () => {
   updateSplitButton();
   updateResizerVisibility();
+  applyWidthTokens();
 });
 
 // ============================================================
@@ -649,6 +835,7 @@ const toggleFocus = () => {
     ? "Exit Focus"
     : "Focus";
   updateResizerVisibility();
+  applyWidthTokens();
 };
 
 focusBtn.addEventListener("click", toggleFocus);
@@ -695,6 +882,11 @@ document.addEventListener("keydown", (event) => {
     toggleTheme();
     return;
   }
+  if (isModifier && event.shiftKey && key === "l") {
+    event.preventDefault();
+    toggleLiveMarkdown();
+    return;
+  }
   if (isModifier && event.shiftKey && key === "m") {
     event.preventDefault();
     openFontModal();
@@ -735,10 +927,12 @@ applyTheme(currentTheme);
 initFonts();
 initLayout();
 syncVimButton();
+syncLiveMdButton();
 
 // Default to single view (split-off)
 document.body.classList.add("split-off");
 updateSplitButton();
+applyWidthTokens();
 
 render();
 
