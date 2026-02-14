@@ -900,8 +900,7 @@ document.addEventListener("keydown", (event) => {
   if (event.key === "Escape" && event.ctrlKey && document.body.classList.contains("focus")) {
     const vimState = editor.state.vim;
     if (vimState && vimState.insertMode) return;
-    document.body.classList.remove("focus");
-    focusBtn.textContent = "Focus";
+    toggleFocus();
   }
 });
 
