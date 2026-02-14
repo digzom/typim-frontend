@@ -19,8 +19,11 @@ const menuVim = document.getElementById("menu-vim");
 const menuTheme = document.getElementById("menu-theme");
 const menuFonts = document.getElementById("menu-fonts");
 const menuShortcuts = document.getElementById("menu-shortcuts");
-const menuLayout = document.getElementById("menu-layout");
 const menuShare = document.getElementById("menu-share");
+const menuLiveMd = document.getElementById("menu-livemd");
+
+// Split resizer element
+const splitResizer = document.getElementById("split-resizer");
 
 // Modal elements
 const shareModal = document.getElementById("share-modal");
@@ -38,9 +41,6 @@ const fontBodySelect = document.getElementById("font-body");
 const fontMonoSelect = document.getElementById("font-mono");
 const shortcutsModal = document.getElementById("shortcuts-modal");
 const shortcutsClose = document.getElementById("shortcuts-close");
-const layoutModal = document.getElementById("layout-modal");
-const layoutClose = document.getElementById("layout-close");
-const layoutWidth = document.getElementById("layout-width");
 
 // ============================================================
 // State
@@ -50,6 +50,21 @@ let renderScheduled = false;
 let lastValue = null;
 let liveSyncTimer = null;
 let currentTheme = "light";
+let enableLiveMarkdown = false;
+let lmInCodeFence = false;
+
+// Split resizer constants
+const SPLIT_RATIO_KEY = "splitRatio";
+const SPLIT_RATIO_DEFAULT = 0.5;
+const SPLIT_RATIO_MIN = 0.3;
+const SPLIT_RATIO_MAX = 0.7;
+const SPLIT_KEYBOARD_STEP = 0.02;
+const SPLIT_KEYBOARD_STEP_LARGE = 0.05;
+
+// Split resizer runtime state
+let splitRatio = SPLIT_RATIO_DEFAULT;
+let isResizing = false;
+let activePointerId = null;
 
 const shareState = {
   id: null,
@@ -106,7 +121,57 @@ const editor = window.CodeMirror(editorRoot, {
   lineWrapping: true,
   lineNumbers: false,
   keyMap: "default",
+  extraKeys: {
+    "Ctrl-W": "delWordBefore",
+  },
 });
+
+// ============================================================
+// Ctrl+W Global Capture (prevent tab close when editor focused)
+// ============================================================
+const isMac = /Mac|iPhone|iPad|iPod/.test(navigator.platform);
+
+const isAnyModalOpen = () => {
+  return (
+    (shareModal && shareModal.classList.contains("show")) ||
+    (fontModal && fontModal.classList.contains("show")) ||
+    (shortcutsModal && shortcutsModal.classList.contains("show")) ||
+    document.querySelector(".modal.show") !== null
+  );
+};
+
+const isEditorFocused = () => {
+  const active = document.activeElement;
+  if (!active) return false;
+  const cmWrapper = editor.getWrapperElement();
+  return cmWrapper.contains(active);
+};
+
+document.addEventListener(
+  "keydown",
+  (e) => {
+    // Only intercept Ctrl+W on non-Mac platforms
+    if (isMac) return;
+    if (e.key.toLowerCase() !== "w" || !e.ctrlKey || e.metaKey || e.shiftKey || e.altKey) return;
+
+    // Skip if Vim mode is active (Vim has its own Ctrl-W window commands)
+    if (vimEnabled) return;
+
+    // Skip if any modal is open
+    if (isAnyModalOpen()) return;
+
+    // Only intercept when editor has focus
+    if (!isEditorFocused()) return;
+
+    // Prevent browser tab close and stop propagation
+    e.preventDefault();
+    e.stopPropagation();
+
+    // Execute the delete-word-before command via CodeMirror
+    editor.execCommand("delWordBefore");
+  },
+  true, // capture phase
+);
 
 // ============================================================
 // Helpers
@@ -115,6 +180,10 @@ const isMobile = () => window.matchMedia("(max-width: 900px)").matches;
 
 const syncVimButton = () => {
   menuVim.textContent = vimEnabled ? "Vim: On" : "Vim: Off";
+};
+
+const syncLiveMdButton = () => {
+  menuLiveMd.textContent = enableLiveMarkdown ? "Live MD: On" : "Live MD: Off";
 };
 
 // ============================================================
@@ -172,19 +241,52 @@ const initFonts = () => {
 };
 
 // ============================================================
-// Preferences: Layout
+// Split Resizer Helpers
 // ============================================================
-const applyLayoutWidth = (value) => {
-  const width = Number(value) || 1400;
-  document.documentElement.style.setProperty("--container-width", `${width}px`);
-  localStorage.setItem("layoutWidth", String(width));
+const clampRatio = (value) => Math.min(SPLIT_RATIO_MAX, Math.max(SPLIT_RATIO_MIN, value));
+
+const readStoredSplitRatio = () => {
+  const stored = localStorage.getItem(SPLIT_RATIO_KEY);
+  if (stored !== null) {
+    const parsed = parseFloat(stored);
+    if (!isNaN(parsed) && parsed >= SPLIT_RATIO_MIN && parsed <= SPLIT_RATIO_MAX) {
+      splitRatio = parsed;
+      return;
+    }
+  }
+  splitRatio = SPLIT_RATIO_DEFAULT;
 };
 
-const initLayout = () => {
-  const stored = localStorage.getItem("layoutWidth");
-  const width = stored ? Number(stored) : 1400;
-  layoutWidth.value = String(width || 1400);
-  applyLayoutWidth(width || 1400);
+const applySplitRatio = (value, { persist = true } = {}) => {
+  splitRatio = clampRatio(value);
+  document.querySelector(".workspace").style.setProperty("--split-ratio", String(splitRatio));
+  syncResizerA11y();
+  if (persist) {
+    localStorage.setItem(SPLIT_RATIO_KEY, String(splitRatio));
+  }
+};
+
+const isSplitResizable = () => {
+  return (
+    !isMobile() &&
+    !document.body.classList.contains("split-off") &&
+    !document.body.classList.contains("focus")
+  );
+};
+
+const syncResizerA11y = () => {
+  const percent = Math.round(splitRatio * 100);
+  splitResizer.setAttribute("aria-valuenow", String(percent));
+};
+
+const updateResizerVisibility = () => {
+  if (isSplitResizable()) {
+    splitResizer.removeAttribute("hidden");
+    splitResizer.setAttribute("tabindex", "0");
+  } else {
+    splitResizer.setAttribute("hidden", "");
+    splitResizer.setAttribute("tabindex", "-1");
+  }
 };
 
 // ============================================================
@@ -388,11 +490,9 @@ const openFontModal = () => openModal(fontModal);
 const closeFontModal = () => closeModal(fontModal);
 const openShortcutsModal = () => openModal(shortcutsModal);
 const closeShortcutsModal = () => closeModal(shortcutsModal);
-const openLayoutModal = () => openModal(layoutModal);
-const closeLayoutModal = () => closeModal(layoutModal);
 
 // Modal event listeners
-[shareModal, fontModal, shortcutsModal, layoutModal].forEach((modal) => {
+[shareModal, fontModal, shortcutsModal].forEach((modal) => {
   modal.addEventListener("click", (e) => {
     if (e.target === modal) closeModal(modal);
   });
@@ -402,7 +502,6 @@ const closeLayoutModal = () => closeModal(layoutModal);
 shareClose.addEventListener("click", closeShareModal);
 fontClose.addEventListener("click", closeFontModal);
 shortcutsClose.addEventListener("click", closeShortcutsModal);
-layoutClose.addEventListener("click", closeLayoutModal);
 
 shareCreateBtn.addEventListener("click", createShare);
 shareUpdateBtn.addEventListener("click", updateLiveShare);
@@ -426,7 +525,6 @@ sharePrivacySelect.addEventListener("change", (e) => {
 
 fontBodySelect.addEventListener("change", (e) => applyFonts(e.target.value, fontMonoSelect.value));
 fontMonoSelect.addEventListener("change", (e) => applyFonts(fontBodySelect.value, e.target.value));
-layoutWidth.addEventListener("input", (e) => applyLayoutWidth(e.target.value));
 
 // ============================================================
 // Menu Handling
@@ -506,11 +604,6 @@ menuShortcuts.addEventListener("click", () => {
   openShortcutsModal();
 });
 
-menuLayout.addEventListener("click", () => {
-  closeMenu();
-  openLayoutModal();
-});
-
 menuShare.addEventListener("click", () => {
   closeMenu();
   openShareModal();
@@ -538,9 +631,14 @@ const toggleSplit = () => {
     document.body.classList.toggle("split-off");
   }
   updateSplitButton();
+  updateResizerVisibility();
+  editor.refresh();
 };
 
-window.addEventListener("resize", updateSplitButton);
+window.addEventListener("resize", () => {
+  updateSplitButton();
+  updateResizerVisibility();
+});
 
 // ============================================================
 // Focus Mode
@@ -550,6 +648,7 @@ const toggleFocus = () => {
   focusBtn.textContent = document.body.classList.contains("focus")
     ? "Exit Focus"
     : "Focus";
+  updateResizerVisibility();
 };
 
 focusBtn.addEventListener("click", toggleFocus);
@@ -622,7 +721,6 @@ document.addEventListener("keydown", (event) => {
   if (shareModal.classList.contains("show")) return;
   if (fontModal.classList.contains("show")) return;
   if (shortcutsModal.classList.contains("show")) return;
-  if (layoutModal.classList.contains("show")) return;
   if (actionMenu.classList.contains("show")) return;
   if (active && active.closest && active.closest(".CodeMirror")) return;
   if (active && ["INPUT", "TEXTAREA", "SELECT", "BUTTON"].includes(active.tagName)) return;

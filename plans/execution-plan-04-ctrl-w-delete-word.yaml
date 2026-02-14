@@ -1,0 +1,230 @@
+execution_plan:
+  interfaces:
+    - name: WordDeletionCommand
+      responsibility: "Compute and remove the lexical segment immediately before the caret when Ctrl+W is pressed"
+      contracts:
+        input: "{doc: CodeMirror.Doc, cursor: {line: integer, ch: integer}}"
+        output: "{mutated: boolean, newCursor: {line: integer, ch: integer}}"
+      invariants: [INV-04-SHORTCUTS, INV-04-FOCUS_SCOPE]
+      derived_from: [SC-04-GOAL, SC-04-STEP-1]
+
+    - name: CodeMirrorKeyBindingAdapter
+      responsibility: "Bind keyboard accelerators to CodeMirror commands without disturbing existing shortcuts"
+      contracts:
+        input: "{editor: CodeMirror.Editor, keySpec: string, commandName: string}"
+        output: "{bindingRegistered: boolean, overrides: array<string>}"
+      invariants: [INV-04-SHORTCUTS]
+      derived_from: [SC-04-SCOPE, SC-04-STEP-2]
+
+    - name: CtrlWGlobalInterceptor
+      responsibility: "Capture Ctrl+W before the browser closes the tab and route it to the editor command when allowed"
+      contracts:
+        input: "{event: KeyboardEvent, context: {platform: string, editorFocused: boolean, modalOpen: boolean, vimEnabled: boolean}}"
+        output: "{prevented: boolean, executed: boolean}"
+      invariants: [INV-04-FOCUS_SCOPE, INV-04-BROWSER]
+      derived_from: [SC-04-STEP-3, SC-04-STEP-5]
+
+    - name: VimCompatibilityGate
+      responsibility: "Detect active Vim keymap state and disable conflicting Ctrl+W interception"
+      contracts:
+        input: "{vimEnabled: boolean, keyEvent: KeyboardEvent}"
+        output: "{skipGlobalCapture: boolean, delegateToVim: boolean}"
+      invariants: [INV-04-VIM]
+      derived_from: [SC-04-STEP-4]
+
+    - name: ShortcutDocumentationSync
+      responsibility: "Surface Ctrl+W shortcut details and fallbacks inside index.html and the shortcuts modal"
+      contracts:
+        input: "{shortcutId: string, description: string, fallback: string}"
+        output: "{modalRowUpdated: boolean, staticCopyUpdated: boolean}"
+      invariants: [INV-04-DOCS]
+      derived_from: [SC-04-STEP-6]
+
+    - name: CrossBrowserTestMatrix
+      responsibility: "Record manual verification of Ctrl+W handling on Chrome, Firefox, and Edge across focus states"
+      contracts:
+        input: "{browser: enum, os: enum, scenario: enum, result: string}"
+        output: "{qaEntryLogged: boolean, deviations: array<string>}"
+      invariants: [INV-04-BROWSER]
+      derived_from: [SC-04-STEP-7, SC-04-QA]
+
+  modules:
+    - name: Editor.KeyCommands (app.js)
+      responsibility: "Hosts CodeMirror command implementations, deletes previous word, and wires Ctrl+W inside extraKeys"
+      depends_on: [WordDeletionCommand, CodeMirrorKeyBindingAdapter]
+      derived_from: [SC-04-SCOPE, SC-04-STEP-1, SC-04-STEP-2]
+
+    - name: Editor.GlobalKeyCapture (app.js)
+      responsibility: "Runs capture-phase listeners to intercept Ctrl+W before browser defaults when editor context is valid"
+      depends_on: [CtrlWGlobalInterceptor, VimCompatibilityGate]
+      derived_from: [SC-04-STEP-3, SC-04-STEP-5]
+
+    - name: Editor.VimIntegration (app.js)
+      responsibility: "Tracks Vim enablement, syncs UI toggles, and toggles Ctrl+W interception accordingly"
+      depends_on: [VimCompatibilityGate]
+      derived_from: [SC-04-STEP-4]
+
+    - name: UI.ShortcutsModal (index.html)
+      responsibility: "Displays shortcut table rows, including Ctrl+W description and fallback text"
+      depends_on: [ShortcutDocumentationSync]
+      derived_from: [SC-04-STEP-6]
+
+    - name: Docs.ShortcutCopy (index.html)
+      responsibility: "Keeps static shortcut descriptions in sync with implemented behavior and communicates Alt+Backspace fallback"
+      depends_on: [ShortcutDocumentationSync]
+      derived_from: [SC-04-STEP-6]
+
+    - name: QA.CrossBrowserChecklist (plans/04-ctrl-w-delete-word-plan.md)
+      responsibility: "Holds verification notes for Chrome, Firefox, and Edge scenarios listed in the plan"
+      depends_on: [CrossBrowserTestMatrix]
+      derived_from: [SC-04-STEP-7, SC-04-QA]
+
+  steps:
+    - id: STEP-04-001
+      description: "Implement lexical deleteWordBefore command inside app.js"
+      inputs:
+        - "app.js current CodeMirror configuration"
+        - "SC-04-STEP-1 word boundary specification"
+      outputs:
+        - "app.js: function deleteWordBefore(editor: CodeMirror.Editor) that edits via CodeMirror.Doc APIs"
+        - "app.js: export or registration so CodeMirror can call deleteWordBefore through editor.execCommand"
+      constraints:
+        - "Word boundaries MUST treat whitespace and punctuation as separators (SC-04-STEP-1)"
+        - "When cursor at line start with a previous line present, command MUST join with that line before deleting (SC-04-GOAL)"
+        - "Command MUST NOT mutate DOM nodes directly; only use CodeMirror APIs to preserve undo stack (SC-04-SCOPE)"
+      derived_from: [SC-04-GOAL, SC-04-STEP-1, INV-04-SHORTCUTS]
+      acceptance_tests:
+        - "Typing 'alpha bravo|' and pressing Ctrl+W removes 'bravo' and trailing space (AC-04-01)"
+        - "Typing 'alpha |bravo' removes only the preceding whitespace, leaving 'alpha bravo' (AC-04-01)"
+        - "Cursor at start of line 2 joins with line 1 before deleting characters, matching terminal semantics (SC-04-STEP-1)"
+
+    - id: STEP-04-002
+      description: "Bind Ctrl+W to deleteWordBefore in CodeMirror's extraKeys without disturbing other shortcuts"
+      inputs:
+        - "CodeMirror configuration block inside app.js"
+        - "SC-04-STEP-2 binding rules"
+      outputs:
+        - "app.js: extraKeys mapping of 'Ctrl-W' (and platform-specific variants) to deleteWordBefore"
+        - "app.js: regression guard ensuring existing key combinations (Ctrl+S, Ctrl+O, etc.) remain defined"
+      constraints:
+        - "Binding MUST only target Ctrl+W on non-Mac platforms; Cmd+W remains untouched (SC-04-SCOPE)"
+        - "deleteWordBefore MUST be addressable both via extraKeys and editor.execCommand for reuse by global capture (SC-04-STEP-2)"
+        - "No other shortcuts may be removed or redefined (INV-04-SHORTCUTS)"
+      derived_from: [SC-04-STEP-2, INV-04-SHORTCUTS]
+      acceptance_tests:
+        - "With default keymap active, CodeMirror receives a single deleteWordBefore invocation when Ctrl+W is pressed (AC-04-01)"
+        - "Ctrl+S still opens the save workflow and Ctrl+O still opens the file chooser (AC-04-04)"
+
+    - id: STEP-04-003
+      description: "Install capture-phase Ctrl+W listener that prevents browser tab closure and triggers the command when editor focus is confirmed"
+      inputs:
+        - "app.js global keyboard handling section"
+        - "SC-04-STEP-3 event flow requirements"
+      outputs:
+        - "app.js: document.addEventListener('keydown', handler, {capture: true}) implementation"
+        - "app.js: helper that inspects navigator.platform to skip Macs per scope"
+      constraints:
+        - "Listener MUST exit early for Mac/Cmd+W combinations per scope exclusion (SC-04-SCOPE)"
+        - "Event MUST call preventDefault() and stopPropagation() only when editor-focused guard passes (SC-04-STEP-3)"
+        - "When interception occurs, handler MUST execute deleteWordBefore through editor.execCommand to reuse CodeMirror undo stack (SC-04-STEP-3)"
+      derived_from: [SC-04-STEP-3, INV-04-BROWSER, INV-04-FOCUS_SCOPE]
+      acceptance_tests:
+        - "On Windows/Linux, pressing Ctrl+W with editor focused deletes the previous word without closing the tab (AC-04-01)"
+        - "Clicking outside the editor and pressing Ctrl+W closes the tab normally (SC-04-STEP-3)"
+
+    - id: STEP-04-004
+      description: "Respect Vim mode by disabling the Ctrl+W interception layer whenever the Vim keymap is active"
+      inputs:
+        - "app.js Vim toggle logic and menu button state"
+        - "SC-04-STEP-4 compatibility requirements"
+      outputs:
+        - "app.js: condition in global handler that checks vimEnabled before intercepting"
+        - "app.js: UI hint (menu or shortcuts modal blurb) clarifying Vim users rely on native Vim motions"
+      constraints:
+        - "When vimEnabled === true, global Ctrl+W interception MUST no-op to avoid breaking Vim window commands (SC-04-STEP-4)"
+        - "Switching Vim mode MUST immediately update the guard without requiring a reload (SC-04-STEP-4)"
+        - "Documentation MUST point Vim users to Vim-native delete-word motions such as 'db' (SC-04-STEP-4)"
+      derived_from: [SC-04-STEP-4, INV-04-VIM]
+      acceptance_tests:
+        - "With Vim mode enabled, pressing Ctrl+W does not trigger deleteWordBefore and Vim mappings remain intact (AC-04-03)"
+        - "Turning Vim mode off restores the Ctrl+W deletion behavior without reloading (AC-04-03)"
+
+    - id: STEP-04-005
+      description: "Guard modal and input edge cases so Ctrl+W never closes the tab while a Typim modal text field is active"
+      inputs:
+        - "app.js modal state helpers"
+        - "SC-04-STEP-5 focus requirements"
+      outputs:
+        - "app.js: isAnyModalOpen() and isEditorFocused() helpers or equivalents"
+        - "app.js: modal-specific listeners that preventDefault() on Ctrl+W inside share/font/shortcuts inputs without invoking deleteWordBefore"
+      constraints:
+        - "Global handler MUST skip executing deleteWordBefore whenever a modal is visible (SC-04-STEP-5)"
+        - "Modal-specific listeners MUST only preventDefault when the event target is inside the modal form controls (SC-04-STEP-5)"
+        - "Handlers MUST NOT interfere with other inputs outside Typim (e.g., browser chrome) (INV-04-FOCUS_SCOPE)"
+      derived_from: [SC-04-STEP-5, INV-04-FOCUS_SCOPE]
+      acceptance_tests:
+        - "With share modal input focused, pressing Ctrl+W does not close the tab and does not mutate the editor (AC-04-02)"
+        - "With font modal select focused, Ctrl+W leaves selection untouched and the browser tab stays open (AC-04-02)"
+
+    - id: STEP-04-006
+      description: "Update shortcuts documentation in index.html and shortcuts modal to describe Ctrl+W and Alt+Backspace fallback"
+      inputs:
+        - "index.html shortcuts modal markup"
+        - "SC-04-STEP-6 documentation requirements"
+      outputs:
+        - "index.html: shortcuts row for Ctrl+W with description 'Delete previous word'"
+        - "index.html or supporting copy: note that Alt+Backspace remains the fallback if browsers block interception"
+      constraints:
+        - "Documentation MUST mention Vim caveat directing users to Vim-native motions (SC-04-STEP-4, SC-04-STEP-6)"
+        - "Copy MUST clearly limit scope to Ctrl+W (Ctrl/Cmd distinctions) per plan (SC-04-SCOPE)"
+        - "Updates MUST keep accessibility semantics of the shortcuts modal intact (INV-04-DOCS)"
+      derived_from: [SC-04-STEP-6, INV-04-DOCS]
+      acceptance_tests:
+        - "Shortcuts modal displays Ctrl+W entry with correct description and fallback note (AC-04-05)"
+        - "Landing page text (index.html) mentions Alt+Backspace fallback for unsupported browsers (SC-04-STEP-6)"
+
+    - id: STEP-04-007
+      description: "Execute cross-browser QA and log results against the Chrome/Firefox/Edge matrix"
+      inputs:
+        - "SC-04-STEP-7 browser list"
+        - "app.js compiled build"
+      outputs:
+        - "plans/04-ctrl-w-delete-word-plan.md: appended QA matrix with status for Chrome, Firefox, and Edge on Linux/Windows"
+        - "Notes on any browsers where intercept fails plus Alt+Backspace mitigation reference"
+      constraints:
+        - "Each browser entry MUST cover three states: editor focused, modal focused, background focus (SC-04-QA)"
+        - "Any failure MUST document reproduction steps and whether fallback instructions appear in UI (SC-04-STEP-7)"
+        - "QA log MUST avoid storing tokens or secrets (INV-04-SECURITY)"
+      derived_from: [SC-04-STEP-7, SC-04-QA, INV-04-BROWSER]
+      acceptance_tests:
+        - "QA matrix shows pass/fail for Chrome, Firefox, Edge on Linux and Windows (SC-04-QA)"
+        - "For any fail, documentation points to Alt+Backspace fallback (SC-04-STEP-7)"
+
+  acceptance_criteria:
+    - id: AC-04-01
+      description: "With editor focus, Ctrl+W deletes the previous word and the browser tab remains open"
+      derived_from: [SC-04-QA-AC-01]
+
+    - id: AC-04-02
+      description: "With share or font modal inputs focused, Ctrl+W neither closes the tab nor mutates the editor"
+      derived_from: [SC-04-QA-AC-02]
+
+    - id: AC-04-03
+      description: "When Vim mode is enabled, Ctrl+W follows Vim behavior with no conflicts"
+      derived_from: [SC-04-QA-AC-03]
+
+    - id: AC-04-04
+      description: "Ctrl+S, Ctrl+O, and other existing shortcuts continue working"
+      derived_from: [SC-04-QA-AC-04, INV-04-SHORTCUTS]
+
+    - id: AC-04-05
+      description: "Shortcuts modal lists Ctrl+W as 'Delete previous word' and mentions Alt+Backspace fallback"
+      derived_from: [SC-04-QA-AC-05, SC-04-STEP-6]
+
+    - id: AC-04-06
+      description: "No console errors occur from the new key handling logic"
+      derived_from: [SC-04-QA-AC-06]
+
+    - id: AC-04-07
+      description: "No token persistence or backend behavior changes result from this feature"
+      derived_from: [SC-04-QA-AC-07, INV-04-SECURITY]

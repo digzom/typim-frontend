@@ -1,0 +1,233 @@
+execution_plan:
+  interfaces:
+    - name: SplitRatioStateInterface
+      responsibility: "Clamp pane ratio, update CSS variables, and persist split ratio"
+      contracts:
+        input: "{ratio:number, persist?:boolean}"
+        output: "{appliedRatio:number, cssVar:string, ariaValue:number}"
+      invariants: [INV-PLAN01-PERSISTENCE, INV-PLAN01-DESKTOP]
+      derived_from: [ADR-PLAN01-JS-STATE, SC-PLAN01-G1]
+
+    - name: DividerInteractionInterface
+      responsibility: "Translate pointer and keyboard events on #split-resizer into ratio changes with a11y feedback"
+      contracts:
+        input: "{type:'pointer'|'keyboard', delta:number}" 
+        output: "{ratio:number, focusState:'active'|'idle'}"
+      invariants: [INV-PLAN01-DESKTOP, INV-PLAN01-FOCUS]
+      derived_from: [ADR-PLAN01-POINTER, ADR-PLAN01-A11Y, SC-PLAN01-G2]
+
+    - name: LayoutVisibilityInterface
+      responsibility: "Show or hide the divider based on split, focus, and viewport state while keeping panes synced"
+      contracts:
+        input: "{splitActive:boolean, focus:boolean, isMobile:boolean}"
+        output: "{dividerVisible:boolean, bodyClass:string}"
+      invariants: [INV-PLAN01-MOBILE, INV-PLAN01-FOCUS, INV-PLAN01-CODEMIRROR]
+      derived_from: [ADR-PLAN01-INTEGRATION, SC-PLAN01-G3]
+
+  modules:
+    - name: index.html::WorkspaceStructure
+      responsibility: "Define editor, resizer, and preview DOM order plus ARIA attributes"
+      depends_on: [SplitRatioStateInterface, DividerInteractionInterface]
+      derived_from: [ADR-PLAN01-HTML]
+
+    - name: styles.css::SplitLayoutStyles
+      responsibility: "Implement CSS grid columns, resizer visuals, and responsive rules for split view"
+      depends_on: [SplitRatioStateInterface]
+      derived_from: [ADR-PLAN01-CSS]
+
+    - name: app.js::SplitRatioController
+      responsibility: "Expose DOM references, ratio helpers, persistence, and ARIA sync logic"
+      depends_on: [SplitRatioStateInterface, DividerInteractionInterface, LayoutVisibilityInterface]
+      derived_from: [ADR-PLAN01-JS-STATE]
+
+    - name: app.js::SplitInteractionHandlers
+      responsibility: "Attach pointer/keyboard listeners, manage dragging sessions, and refresh CodeMirror"
+      depends_on: [DividerInteractionInterface]
+      derived_from: [ADR-PLAN01-POINTER, ADR-PLAN01-A11Y]
+
+    - name: app.js::SplitVisibilityIntegration
+      responsibility: "Wire updateResizerVisibility into toggleSplit, toggleFocus, and resize observers"
+      depends_on: [LayoutVisibilityInterface]
+      derived_from: [ADR-PLAN01-INTEGRATION]
+
+    - name: app.js::LegacyLayoutCleanup
+      responsibility: "Remove layout modal JS paths, storage keys, and menu hooks"
+      depends_on: []
+      derived_from: [ADR-PLAN01-CLEANUP, SC-PLAN01-G4]
+
+  steps:
+    - id: STEP-001
+      description: "Restructure index.html to remove the Layout menu/modal and insert the accessible #split-resizer element between panes"
+      inputs:
+        - index.html
+        - plans/01-split-resizer-plan.md §8.1
+      outputs:
+        - index.html#L54-L207 (updated nav and workspace markup with <div id="split-resizer">)
+      actions:
+        - command: read index.html
+          detail: "Inspect #action-menu and .workspace sections to locate #menu-layout and #layout-modal nodes"
+        - command: edit index.html
+          detail: "Remove the Layout button and modal markup entirely, ensuring remaining modal structure is intact"
+        - command: edit index.html
+          detail: "Insert <div id=\"split-resizer\" ...> with role=separator and ARIA attributes between .editor-pane and .preview-pane"
+      validation:
+        - "Reload index.html in the browser and confirm the Layout option is gone and the divider DOM node exists once"
+        - "Use Accessibility panel to verify #split-resizer exposes role=separator, aria-valuemin=30, aria-valuemax=70, and tabindex=0"
+      dependencies: []
+      derived_from: [ADR-PLAN01-HTML, SC-PLAN01-G1, SC-PLAN01-G4]
+
+    - id: STEP-002
+      description: "Create the CSS grid model, resizer visuals, and responsive/focus visibility gates for the split layout"
+      inputs:
+        - styles.css
+        - plans/01-split-resizer-plan.md §8.2
+      outputs:
+        - styles.css:root variables for --split-ratio/--split-resizer-width/--split-hit-area-width
+        - styles.css updates to .workspace, .split-resizer, body.resizing, .split-off, .focus, and desktop/mobile media queries
+      actions:
+        - command: edit styles.css
+          detail: "Add CSS custom properties controlling ratios and resizer widths near existing :root block"
+        - command: edit styles.css
+          detail: "Replace .workspace grid-template-columns with the three-column calc formula referencing --split-ratio"
+        - command: edit styles.css
+          detail: "Append .split-resizer styles (size, cursor, hit area), focus-visible outline, and body.resizing rules disabling selection"
+        - command: edit styles.css
+          detail: "Hide .split-resizer under .split-off, .focus, and @media (max-width:900px) while preserving mobile toggle behavior"
+      validation:
+        - "In devtools, adjust --split-ratio and confirm editor/preview columns resize while resizer width stays constant"
+        - "Toggle body.split-off or focus classes and confirm .split-resizer becomes display:none and user-select returns"
+      dependencies: [STEP-001]
+      derived_from: [ADR-PLAN01-CSS, INV-PLAN01-DESKTOP, INV-PLAN01-FOCUS, SC-PLAN01-G2]
+
+    - id: STEP-003
+      description: "Implement split ratio state, helpers, and initialization logic in app.js including localStorage persistence"
+      inputs:
+        - app.js DOM refs, helper sections
+        - plans/01-split-resizer-plan.md §§8.3, 8.7, 9
+      outputs:
+        - app.js constants (SPLIT_RATIO_KEY/DEFAULT/MIN/MAX/STEP values) and state variables (splitRatio, isResizing)
+        - app.js functions clampRatio, readStoredSplitRatio, applySplitRatio, syncResizerA11y, isSplitResizable, updateResizerVisibility
+        - app.js initialization block that applies stored ratio, removes layoutWidth storage, and calls updateResizerVisibility()
+      actions:
+        - command: edit app.js
+          detail: "Add DOM references for the workspace container and #split-resizer near existing references"
+        - command: edit app.js
+          detail: "Define ratio constants/state under the State section and implement helper functions for clamping, persistence, and aria sync"
+        - command: edit app.js
+          detail: "During init, load stored ratio (falling back to default), call applySplitRatio with {persist:false}, clear legacy layoutWidth, and invoke updateResizerVisibility()"
+      validation:
+        - "Verify localStorage only stores splitRatio (stringified float) and no longer writes layoutWidth"
+        - "Check document.documentElement.style.getPropertyValue('--split-ratio') matches the applied ratio after reload"
+        - "Toggle focus/split/mobile states and confirm updateResizerVisibility() flips divider visibility accordingly"
+      dependencies: [STEP-001, STEP-002]
+      derived_from: [ADR-PLAN01-JS-STATE, INV-PLAN01-PERSISTENCE, SC-PLAN01-G1]
+
+    - id: STEP-004
+      description: "Attach pointerdown/move/up handlers to #split-resizer to drive live resizing with body.resizing feedback"
+      inputs:
+        - app.js (new state helpers from STEP-003)
+        - plans/01-split-resizer-plan.md §8.4
+      outputs:
+        - app.js pointer event listeners that compute ratio from workspace.getBoundingClientRect()
+        - app.js body.resizing class toggles plus editor.refresh() call on drag end
+      actions:
+        - command: edit app.js
+          detail: "Register pointerdown on splitResizer to gate on isSplitResizable(), setPointerCapture, set isResizing true, and add body.classList 'resizing'"
+        - command: edit app.js
+          detail: "Handle pointermove events by calculating the relative x position, clamping ratio, and calling applySplitRatio(ratio, {persist:false})"
+        - command: edit app.js
+          detail: "On pointerup/pointercancel release capture, remove body.resizing, persist final ratio, and trigger editor.refresh()"
+      validation:
+        - "While dragging, observe --split-ratio updating continuously and pointer cursor locked to col-resize across the page"
+        - "Releasing the drag writes the final ratio to localStorage and removes body.resizing"
+        - "If the viewport switches to mobile mid-drag, handlers exit without errors"
+      dependencies: [STEP-003]
+      derived_from: [ADR-PLAN01-POINTER, INV-PLAN01-DESKTOP, SC-PLAN01-G2]
+
+    - id: STEP-005
+      description: "Provide keyboard accessibility for the divider with arrow/home/end controls and ARIA value updates"
+      inputs:
+        - app.js splitter references
+        - plans/01-split-resizer-plan.md §8.5
+      outputs:
+        - app.js keydown listener on splitResizer honoring ArrowLeft/ArrowRight/Home/End with standard and shift-sized steps
+      actions:
+        - command: edit app.js
+          detail: "Attach keydown handler to splitResizer that prevents default for handled keys and calculates deltas"
+        - command: edit app.js
+          detail: "Reuse clampRatio/applySplitRatio to update state, set persist true, and announce changes via aria-valuenow"
+      validation:
+        - "Tab to the divider and confirm ArrowLeft reduces ratio by 0.02, Shift+Arrow adjusts by 0.05, Home jumps to 0.3, End to 0.7"
+        - "Screen reader announces updated aria-valuenow after each key press"
+      dependencies: [STEP-003]
+      derived_from: [ADR-PLAN01-A11Y, SC-PLAN01-G2, INV-PLAN01-PERSISTENCE]
+
+    - id: STEP-006
+      description: "Integrate divider visibility and refresh hooks with split toggles, focus mode, and resize observers"
+      inputs:
+        - app.js functions toggleSplit, updateSplitButton, toggleFocus, window resize handler
+        - plans/01-split-resizer-plan.md §8.6
+      outputs:
+        - app.js updates calling updateResizerVisibility() after split/focus toggles and on resize
+        - app.js adjustments to toggleSplit() ensuring editor.refresh() after ratio-affecting state changes
+      actions:
+        - command: edit app.js
+          detail: "Augment toggleSplit() to call updateResizerVisibility(), clamp ratio when entering split, and refresh the editor"
+        - command: edit app.js
+          detail: "Update toggleFocus() and window resize listener to invoke updateResizerVisibility() and, when necessary, reset local split states for mobile"
+        - command: edit app.js
+          detail: "Ensure menuSplit labels still update correctly after the new hooks"
+      validation:
+        - "Switch between split and single view; divider hides immediately in single and reappears with saved ratio when split returns"
+        - "Enter and exit focus mode to confirm divider stays hidden during focus"
+        - "Resize window below 900px and ensure divider disappears while mobile preview toggle continues to work"
+      dependencies: [STEP-003, STEP-004, STEP-005]
+      derived_from: [ADR-PLAN01-INTEGRATION, INV-PLAN01-MOBILE, INV-PLAN01-FOCUS, SC-PLAN01-G3]
+
+    - id: STEP-007
+      description: "Delete all legacy layout slider code paths across HTML, CSS, and JS"
+      inputs:
+        - index.html remnants of layout modal (if any after STEP-001)
+        - styles.css modal styles specific to #layout-modal
+        - app.js references to menuLayout/layoutModal/layoutWidth/applyLayoutWidth/initLayout
+        - plans/01-split-resizer-plan.md §8.7
+      outputs:
+        - app.js with layout references removed and no modal arrays touching layoutModal
+        - styles.css without layout-specific selectors
+        - Verified absence of layoutWidth localStorage writes
+      actions:
+        - command: edit app.js
+          detail: "Remove DOM refs and functions tied to layoutWidth plus related menu handlers and event listeners"
+        - command: edit styles.css
+          detail: "Delete selectors that only styled #layout-modal and its inputs"
+        - command: search repo
+          detail: "Run rg 'layoutWidth' and rg 'layout-modal' to confirm no remaining references"
+      validation:
+        - "Running rg 'layoutWidth' returns no matches"
+        - "Menu still opens/closes correctly with remaining items"
+        - "LocalStorage keys show splitRatio, theme, fontBody, fontMono only"
+      dependencies: [STEP-001, STEP-003]
+      derived_from: [ADR-PLAN01-CLEANUP, SC-PLAN01-G4]
+
+    - id: STEP-008
+      description: "Execute manual QA covering desktop drag, persistence, focus mode, mobile behavior, and regression checks"
+      inputs:
+        - index.html served via local static server
+        - app.js instrumentation/logs
+        - plans/01-split-resizer-plan.md §11 QA list
+      outputs:
+        - QA notes documented in plans/01-split-resizer-plan.md or a new QA log (e.g., notes/plan01-split-resizer-qa.md)
+      actions:
+        - command: manual QA
+          detail: "Desktop: enable split, drag divider across bounds, reload to confirm persistence, and ensure CodeMirror refresh"
+        - command: manual QA
+          detail: "Switch to single view, focus mode, and mobile widths to confirm divider hides; verify split toggle still switches editor/preview"
+        - command: manual QA
+          detail: "Exercise keyboard shortcuts, share modal, and scroll sync to ensure no regressions"
+      validation:
+        - "Dragging on desktop updates panes smoothly without text selection; reloading retains last ratio"
+        - "Focus mode hides divider and exits with previous ratio restored"
+        - "Mobile viewport hides divider and retains original toggle workflow"
+        - "Share, save, and shortcut modals operate without console errors"
+      dependencies: [STEP-001, STEP-002, STEP-003, STEP-004, STEP-005, STEP-006, STEP-007]
+      derived_from: [SC-PLAN01-G1, SC-PLAN01-G2, SC-PLAN01-G3, INV-PLAN01-CODEMIRROR]

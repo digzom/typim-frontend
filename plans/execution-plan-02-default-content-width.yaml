@@ -1,0 +1,182 @@
+execution_plan:
+  interfaces:
+    - name: ContentWidthTokens
+      responsibility: "Provide deterministic width and padding tokens for each layout mode"
+      contracts:
+        input: "{mode: 'single'|'split'|'focus', viewport: 'desktop'|'tablet'|'mobile'}"
+        output: "{maxWidthPx: number, paddingInlinePx: number, clampBehavior: 'fixed'|'fluid'}"
+      invariants:
+        - "Desktop single view clamp between 1040px and 1200px to widen reading area without unlimited lines"
+        - "Split view clamp not less than 900px to preserve readability per pane"
+        - "Mobile contexts keep fluid 100% width with compact padding to avoid horizontal scrolling"
+      derived_from: [PLAN02-GOAL, PLAN02-STEP-02, PLAN02-STEP-03, AC-01, AC-02, AC-04]
+    - name: PaneLayoutState
+      responsibility: "Synchronize CSS classes and ARIA settings for single, split, focus, and mobile contexts"
+      contracts:
+        input: "{bodyClasses: set, splitRatio: float, viewportWidth: integer}"
+        output: "{appliedClasses: set, aria: {resizerNow: integer}, cssVars: {'--split-ratio': float}}"
+      invariants:
+        - "Single view indicated by body.split-off, split view by lack of split-off, focus mode by body.focus"
+        - "Resizer hidden on mobile or focus according to constraints in Plan 02"
+        - "No layout width slider elements participate in mode changes"
+      derived_from: [PLAN02-CONSTRAINTS-L21-L26, PLAN02-STEP-04, PLAN02-STEP-06, AC-02, AC-04]
+    - name: LegacyWidthStateGuard
+      responsibility: "Eliminate residual slider width state and ensure deterministic defaults"
+      contracts:
+        input: "{localStorage: Storage, documentElement: HTMLElement}"
+        output: "{removedKeys: ['layoutWidth'], resetVars: []}"
+      invariants:
+        - "No code reads or writes layoutWidth or --container-width"
+        - "Initialization does not rely on undefined initLayout hooks"
+      derived_from: [PLAN02-STEP-04, AC-05, AC-06]
+
+  modules:
+    - name: HTML.LayoutStructure
+      responsibility: "Set default single-view classing and symmetric pane wrappers so CSS tokens apply consistently"
+      files: ['index.html']
+      depends_on: [ContentWidthTokens, PaneLayoutState]
+      derived_from: [PLAN02-STEP-02, PLAN02-STEP-03, PLAN02-CONSTRAINTS-L21-L23, AC-01, AC-02]
+    - name: CSS.ContentWidthSystem
+      responsibility: "Define width tokens and apply them to editor and preview panes for desktop contexts"
+      files: ['styles.css']
+      depends_on: [ContentWidthTokens]
+      derived_from: [PLAN02-STEP-02, PLAN02-STEP-03, AC-01, AC-02, AC-04]
+    - name: CSS.ResponsiveGuards
+      responsibility: "Tune mobile/tablet media queries to respect new tokens without overflow"
+      files: ['styles.css']
+      depends_on: [ContentWidthTokens]
+      derived_from: [PLAN02-STEP-05, PLAN02-CONSTRAINTS-L23-L24, AC-03]
+    - name: JS.LayoutState
+      responsibility: "Manage runtime view toggles, remove legacy slider paths, and enforce deterministic defaults"
+      files: ['app.js']
+      depends_on: [PaneLayoutState, LegacyWidthStateGuard]
+      derived_from: [PLAN02-STEP-04, PLAN02-STEP-06, AC-02, AC-04, AC-05, AC-06]
+    - name: QA.CrossModeMatrix
+      responsibility: "Verify widened defaults against manual matrix for desktop/tablet/mobile and view modes"
+      files: []
+      depends_on: [HTML.LayoutStructure, CSS.ContentWidthSystem, CSS.ResponsiveGuards, JS.LayoutState]
+      derived_from: [PLAN02-STEP-06, AC-01, AC-02, AC-03, AC-04, AC-05]
+
+  steps:
+    - id: STEP-02-001
+      description: "Baseline width audit and documentation"
+      inputs: ['styles.css', PLAN02-STEP-01]
+      outputs:
+        - 'plans/02-width-inventory.md listing every selector using max-width, padding, or container-wide variables'
+      actions:
+        - 'Scan styles.css for max-width, padding, and variable declarations affecting editor and preview content'
+        - 'Record each selector, variable name, and current pixel value in plans/02-width-inventory.md before any changes'
+        - 'Confirm whether any other assets mention --container-width or layoutWidth for cleanup targeting'
+      validation:
+        - 'Inventory enumerates .editor-pane .CodeMirror, .editor-pane .CodeMirror-scroll, .preview, and related wrappers'
+        - 'No additional width-affecting selectors remain undocumented'
+      dependencies: []
+      derived_from: [PLAN02-STEP-01]
+
+    - id: STEP-02-002
+      description: "Embed default single-view classing and pane wrappers in index.html"
+      inputs: ['index.html', ContentWidthTokens, PaneLayoutState, PLAN02-STEP-02, PLAN02-STEP-03]
+      outputs:
+        - 'index.html with <body class="split-off"> to prevent flicker before JS runs'
+        - 'index.html panes enclosing #editor and #preview inside div.pane-content elements for shared width hooks'
+      actions:
+        - 'Add split-off as a default class on <body> so desktop single-view width tokens apply immediately'
+        - 'Wrap the editor mount div and preview article within div.pane-content containers to centralize clamp and padding control'
+        - 'Ensure new wrappers preserve existing accessibility attributes (aria-labels stay on original interactive elements)'
+      validation:
+        - 'Loading index.html without JS still shows single-column editor (supports AC-02) with no horizontal scroll'
+        - 'DOM inspection reveals identical wrapper structure for editor and preview panes, enabling shared CSS selectors'
+      dependencies: [STEP-02-001]
+      derived_from: [PLAN02-STEP-02, PLAN02-STEP-03, AC-01, AC-02]
+
+    - id: STEP-02-003
+      description: "Define desktop content width tokens and apply them to panes"
+      inputs: ['styles.css', ContentWidthTokens, HTML.LayoutStructure, PLAN02-STEP-02, PLAN02-STEP-03]
+      outputs:
+        - 'styles.css root block containing --content-max-single (~1120px), --content-max-split (~960px), --content-max-focus (~1240px), and padding variables'
+        - 'styles.css selectors updated to replace var(--container-width, 900px) with the new tokens and align .pane-content centering'
+      actions:
+        - 'Declare the new CSS variables near :root for desktop/focus contexts plus compact padding tokens'
+        - 'Update .pane, .pane-content, .editor-pane .CodeMirror, and .preview to use shared padding and max-width tokens with margin auto centering'
+        - 'Scope overrides so body.split-off uses --content-max-single, split view uses the split token, and body.focus uses the focus token'
+        - 'Remove any --container-width mentions to eliminate legacy slider influence'
+      validation:
+        - 'Desktop single view (>=1200px viewport) shows visibly wider editor and preview clamps (AC-01)'
+        - 'Split view panes both use the split max-width token without overlapping or hugging edges (AC-02)'
+        - 'Focus mode inherits the widest clamp without causing overflow or CodeMirror refresh issues (AC-04)'
+      dependencies: [STEP-02-002]
+      derived_from: [PLAN02-STEP-02, PLAN02-STEP-03, AC-01, AC-02, AC-04]
+
+    - id: STEP-02-004
+      description: "Tune responsive behavior for tablet and mobile breakpoints"
+      inputs: ['styles.css', CSS.ResponsiveGuards, PLAN02-STEP-05]
+      outputs:
+        - 'styles.css media queries at 900px and 600px updated to use new padding tokens and ensure 100% fluid widths'
+        - 'Inline comment near the media queries documenting compact padding variables'
+      actions:
+        - 'Rework @media (max-width: 900px) so .pane-content paddings collapse to the compact variable and width clamps rely on width: 100%'
+        - 'Ensure mobile preview/editor toggles still hide/show panes without leftover borders or horizontal scroll'
+        - 'At 600px breakpoint, adjust topbar/actions layout to match new padding values and verify buttons remain legible'
+        - 'Confirm no extra media queries are necessary beyond existing breakpoints to satisfy Plan 02 scope'
+      validation:
+        - 'Device emulation at 900px and 600px shows no horizontal overflow and maintains comfortable spacing (AC-03)'
+        - 'Mobile toggle between editor and preview continues to work with zero console warnings'
+      dependencies: [STEP-02-003]
+      derived_from: [PLAN02-STEP-05, AC-03]
+
+    - id: STEP-02-005
+      description: "Remove legacy slider state and harden runtime defaults"
+      inputs: ['app.js', JS.LayoutState, LegacyWidthStateGuard, PLAN02-STEP-04]
+      outputs:
+        - 'app.js cleanup removing initLayout() call and any layoutWidth key usage'
+        - 'app.js helper clearLegacyLayoutWidth() invoked on startup to delete layoutWidth from localStorage and CSS vars'
+        - 'app.js initialization respects body.split-off class from markup without reapplying or conflicting'
+      actions:
+        - 'Delete the undefined initLayout() invocation and any leftover references to slider width helpers'
+        - 'Implement a guard that removes localStorage.layoutWidth and documentElement --container-width (if present) during startup'
+        - 'Adjust startup logic so single view default depends on DOM class; only toggle via menu interactions afterward'
+        - 'Verify split toggle, focus toggle, and resizer updates still sync labels and ARIA attributes without referencing layoutWidth'
+      validation:
+        - 'Console log shows no ReferenceError or warnings related to initLayout/layoutWidth when app.js loads (AC-06)'
+        - 'localStorage contains splitRatio but not layoutWidth after interacting with the UI (AC-05)'
+        - 'Single, split, and focus modes keep the widened widths established in CSS (AC-02, AC-04)'
+      dependencies: [STEP-02-003]
+      derived_from: [PLAN02-STEP-04, PLAN02-STEP-06, AC-02, AC-04, AC-05, AC-06]
+
+    - id: STEP-02-006
+      description: "Cross-mode QA across desktop, tablet, and mobile"
+      inputs: [QA.CrossModeMatrix, PLAN02-STEP-06, AC-01, AC-02, AC-03, AC-04, AC-05]
+      outputs:
+        - 'qa/plan02-width-checklist.md with matrix rows for desktop 1366/1920, tablet 900, mobile 390 covering single, split, focus, and mobile preview/editor'
+        - 'Issue or PR notes stating AC-01..AC-05 status plus screenshots for single and split views'
+      actions:
+        - 'Verify widened clamps on desktop single view (AC-01) and capture measured max-width using devtools rulers'
+        - 'Check split view at 1366px and 1920px to ensure both panes remain usable and record notes (AC-02)'
+        - 'Test focus mode after toggling to confirm no glitches or width regressions (AC-04)'
+        - 'Run mobile emulation at 900px and 390px to ensure zero horizontal scrolling and correct pane toggles (AC-03)'
+        - 'Confirm no token persistence changes or console errors occur during QA (AC-05, AC-06)'
+      validation:
+        - 'QA document completed with PASS/FAIL for each matrix cell and attached evidence where required'
+        - 'Any discovered regression is logged before completion; otherwise plan considered satisfied'
+      dependencies: [STEP-02-004, STEP-02-005]
+      derived_from: [PLAN02-STEP-06, AC-01, AC-02, AC-03, AC-04, AC-05, AC-06]
+
+  acceptance_criteria:
+    - id: PLAN02-AC-01
+      description: 'Desktop single view content area visibly wider than baseline while staying bounded'
+      derived_from: [AC-01]
+    - id: PLAN02-AC-02
+      description: 'Desktop split view panes both present expanded but readable columns without overlap'
+      derived_from: [AC-02]
+    - id: PLAN02-AC-03
+      description: 'Mobile widths retain practical spacing and no horizontal overflow'
+      derived_from: [AC-03]
+    - id: PLAN02-AC-04
+      description: 'Focus mode inherits widened defaults without layout glitches'
+      derived_from: [AC-04]
+    - id: PLAN02-AC-05
+      description: 'No storage or token persistence behaviors change while implementing widths'
+      derived_from: [AC-05]
+    - id: PLAN02-AC-06
+      description: 'Console remains clean of legacy width errors after cleanup'
+      derived_from: [AC-06]

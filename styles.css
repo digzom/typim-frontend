@@ -169,12 +169,61 @@ button:active {
 }
 
 .workspace {
+  --split-ratio: 0.5;
+  --split-resizer-width: 6px;
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  grid-template-columns:
+    minmax(0, calc((100% - var(--split-resizer-width)) * var(--split-ratio)))
+    var(--split-resizer-width)
+    minmax(0, calc((100% - var(--split-resizer-width)) * (1 - var(--split-ratio))));
   gap: 0;
   padding: 0;
   min-height: 0;
   background: var(--panel);
+}
+
+.split-resizer {
+  display: flex;
+  align-items: stretch;
+  justify-content: center;
+  cursor: col-resize;
+  background: transparent;
+  position: relative;
+  z-index: 2;
+  touch-action: none;
+}
+
+.split-resizer::before {
+  content: "";
+  width: 1px;
+  background: var(--border);
+  transition: width 0.15s ease, background 0.15s ease;
+}
+
+.split-resizer:hover::before {
+  width: 3px;
+  background: var(--accent);
+}
+
+.split-resizer:active::before,
+body.resizing .split-resizer::before {
+  width: 3px;
+  background: var(--accent);
+}
+
+.split-resizer:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: -2px;
+}
+
+body.resizing {
+  user-select: none;
+  -webkit-user-select: none;
+  cursor: col-resize;
+}
+
+body.resizing * {
+  cursor: col-resize !important;
 }
 
 .pane {
@@ -358,6 +407,10 @@ button:active {
   pointer-events: none;
 }
 
+.split-off .split-resizer {
+  display: none;
+}
+
 .split-off .preview-pane {
   display: none;
 }
@@ -369,6 +422,7 @@ button:active {
 .focus .topbar,
 .focus .statusbar,
 .focus .preview-pane,
+.focus .split-resizer,
 .focus .action-menu {
   display: none;
 }
@@ -536,6 +590,10 @@ button:active {
     grid-template-columns: 1fr;
   }
 
+  .split-resizer {
+    display: none;
+  }
+
   /* Mobile: show only editor by default */
   .preview-pane {
     display: none;
@@ -549,6 +607,72 @@ button:active {
   .mobile-preview .preview-pane {
     display: flex;
   }
+}
+
+/* ============================================================
+   Live Markdown - Editor line classes
+   ============================================================ */
+.editor-pane .cm-lm-h1 {
+  font-size: 1.8rem;
+  font-weight: 600;
+  line-height: 1.4;
+}
+
+.editor-pane .cm-lm-h2 {
+  font-size: 1.5rem;
+  font-weight: 600;
+  line-height: 1.45;
+}
+
+.editor-pane .cm-lm-h3 {
+  font-size: 1.25rem;
+  font-weight: 600;
+  line-height: 1.5;
+}
+
+.editor-pane .cm-lm-h4 {
+  font-size: 1.1rem;
+  font-weight: 600;
+  line-height: 1.55;
+}
+
+.editor-pane .cm-lm-h5 {
+  font-size: 1.0rem;
+  font-weight: 600;
+  line-height: 1.6;
+}
+
+.editor-pane .cm-lm-h6 {
+  font-size: 0.95rem;
+  font-weight: 600;
+  line-height: 1.65;
+  color: var(--muted);
+}
+
+.editor-pane .cm-lm-blockquote {
+  border-left: 3px solid var(--border);
+  padding-left: 1em;
+  color: var(--muted);
+}
+
+.editor-pane .cm-lm-ul {
+  padding-left: 0.5em;
+}
+
+.editor-pane .cm-lm-ol {
+  padding-left: 0.5em;
+}
+
+.editor-pane .cm-lm-code-fence {
+  background: var(--code-bg);
+  color: var(--code-ink);
+  font-family: var(--font-mono);
+  font-size: 0.92rem;
+}
+
+.editor-pane .cm-lm-hr {
+  border-bottom: 1px solid var(--border);
+  padding-bottom: 0.5em;
 }
 
 @media (max-width: 600px) {

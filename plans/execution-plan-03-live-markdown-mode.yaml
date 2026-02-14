@@ -1,0 +1,281 @@
+execution_plan:
+  interfaces:
+    - name: LiveMarkdownToggle
+      responsibility: "Persist and expose the enableLiveMarkdown preference through menu buttons and shortcuts."
+      contracts:
+        input: "{source:'menu'|'shortcut'|'init', vimEnabled:boolean, storedPref:'on'|'off'|null}"
+        output: "{enabled:boolean, menuLabel:string, shortcutAvailable:boolean, persistedKey:'enableLiveMarkdown'}"
+      invariants: [INV-03-KeyboardFirst, INV-03-NoTokenStorage]
+      derived_from: [SC-03-FeatureFlag, SC-03-Vim, AC-08]
+
+    - name: MarkdownTransformEngine
+      responsibility: "Detect trigger patterns on space/enter/paste and replace them with canonical Markdown tokens."
+      contracts:
+        input: "{lineText:string, precedingText:string, cursor:{line:number,ch:number}, trigger:'space'|'enter'|'paste', blockState:{type:string|null,fence:boolean}}"
+        output: "{didTransform:boolean, replacement:string, cursor:{line:number,ch:number}, blockState:{type:string|null,fence:boolean}}"
+      invariants: [INV-03-MarkdownIntegrity, INV-03-AmbiguousRaw, INV-03-Performance10k]
+      derived_from: [SC-03-Transforms, SC-03-Watcher, AC-01, AC-02, AC-03, AC-04]
+
+    - name: BlockExitCoordinator
+      responsibility: "Control continuation/exit logic for lists, blockquotes, and code fences."
+      contracts:
+        input: "{blockType:'list'|'quote'|'code', currentLine:string, trigger:'enter'|'backspace', blockState}"
+        output: "{shouldContinue:boolean, nextLinePrefix:string, blockState}"
+      invariants: [INV-03-KeyboardFirst, INV-03-AmbiguousRaw]
+      derived_from: [SC-03-Exit, AC-02, AC-03, AC-04]
+
+    - name: PersistenceSyncAdapter
+      responsibility: "Guarantee preview rendering, Save, and Share consume the transformed markdown."
+      contracts:
+        input: "{content:string, title:string, enableLiveMarkdown:boolean, shareState}"
+        output: "{previewHtml:string, saveBlob:Blob, sharePayload:{title:string,content:string}}"
+      invariants: [INV-03-MarkdownIntegrity, INV-03-NoTokenStorage]
+      derived_from: [SC-03-SaveShare, SC-03-Sync, AC-05, AC-06, AC-09]
+
+    - name: UndoHistoryGuard
+      responsibility: "Wrap CodeMirror operations so live transformations remain a single undoable action."
+      contracts:
+        input: "{operation:{from,to,text}, triggerOrigin:'live-md', docLength:number}"
+        output: "{historyEntryMerged:boolean, latencyMs:number}"
+      invariants: [INV-03-Performance10k, INV-03-AmbiguousRaw]
+      derived_from: [SC-03-Watcher, SC-03-QA, AC-03, AC-04]
+
+    - name: VimCompatibilityBridge
+      responsibility: "Coordinate Vim keymap toggles with live markdown availability and documentation."
+      contracts:
+        input: "{vimEnabled:boolean, liveMdEnabled:boolean, request:'vimToggle'|'liveMdToggle', docsElement:HTMLElement}"
+        output: "{liveMdEnabled:boolean, tooltipCopy:string}"
+      invariants: [INV-03-KeyboardFirst]
+      derived_from: [SC-03-Vim, SC-03-QA, AC-07, AC-08]
+
+  modules:
+    - name: ui/live-markdown-toggle
+      responsibility: "Surface the Live Markdown feature flag in index.html and synchronize app.js state, menu label, and shortcut hint."
+      depends_on: [index.html, app.js, localStorage]
+      derived_from: [SC-03-FeatureFlag, SC-03-Vim, AC-08]
+
+    - name: editor/live-markdown-rules
+      responsibility: "Store ordered rule definitions for headings, lists, blockquotes, code fences, and horizontal rules with ambiguity guards."
+      depends_on: [app.js, CodeMirror]
+      derived_from: [SC-03-Transforms, INV-03-AmbiguousRaw, AC-01, AC-02, AC-03, AC-04]
+
+    - name: editor/live-markdown-hooks
+      responsibility: "Wire CodeMirror beforeChange/inputRead/paste hooks that call the transform engine only when enableLiveMarkdown is true and Vim is inactive."
+      depends_on: [app.js, MarkdownTransformEngine, LiveMarkdownToggle]
+      derived_from: [SC-03-Watcher, INV-03-Performance10k, AC-01, AC-02, AC-03, AC-04]
+
+    - name: editor/block-exit-manager
+      responsibility: "Track block state (lmInCodeFence, active list marker) and issue exit/continue operations with undo safety."
+      depends_on: [app.js, CodeMirror, UndoHistoryGuard]
+      derived_from: [SC-03-Exit, SC-03-Watcher, AC-02, AC-03, AC-04]
+
+    - name: persistence/live-markdown-sync
+      responsibility: "Integrate transformed markdown with render(), saveFile(), createShare(), updateLiveShare(), and status counters."
+      depends_on: [app.js, markdown-it, saveFile, createShare, updateLiveShare]
+      derived_from: [SC-03-SaveShare, SC-03-Sync, AC-05, AC-06, AC-09]
+
+    - name: styles/live-markdown-cues
+      responsibility: "Add subtle inline cues (e.g., .cm-live-md-hint markers, status badges) that show transformation state without breaking readability."
+      depends_on: [styles.css, CodeMirror]
+      derived_from: [SC-03-Goal, SC-03-Transforms, INV-03-KeyboardFirst]
+
+    - name: docs/live-markdown-help
+      responsibility: "Document Live Markdown triggers, Vim fallback, and undo expectations inside the shortcuts modal."
+      depends_on: [index.html]
+      derived_from: [SC-03-QA, SC-03-Vim, AC-07, AC-08]
+
+  steps:
+    - id: STEP-03-01
+      description: "Implement Live Markdown feature flag controls and persistence."
+      inputs: [index.html menu markup, app.js state block, SC-03-FeatureFlag, INV-03-NoTokenStorage]
+      outputs:
+        - "app.js: enableLiveMarkdown initialization from localStorage + syncLiveMdButton() update"
+        - "app.js: menuLiveMd click handler and Ctrl/Cmd+Shift+L keyboard shortcut wired to LiveMarkdownToggle"
+        - "index.html: shortcuts modal copy describing the toggle default and opt-in nature"
+      constraints:
+        - "Flag MUST default to disabled on first load (SC-03-FeatureFlag)."
+        - "Preference MUST persist only in localStorage under a new key and never touch share tokens (INV-03-NoTokenStorage, AC-09)."
+        - "Menu button MUST update aria-pressed, text label (Live MD: On/Off), and close the menu after toggling."
+        - "Shortcut MUST no-op when any modal is open to avoid conflicts with global handlers."
+      derived_from: [SC-03-FeatureFlag, SC-03-Vim, INV-03-NoTokenStorage, AC-08]
+      acceptance_tests:
+        - "Fresh load shows menu text 'Live MD: Off' and localStorage lacks enableLiveMarkdown (AC-08)."
+        - "After enabling via menu, reloading restores enableLiveMarkdown true and menu text 'Live MD: On'."
+        - "Ctrl/Cmd+Shift+L toggles the feature while keeping the menu closed and focus on the editor."
+
+    - id: STEP-03-02
+      description: "Define prioritized Live Markdown rules for headings, lists, blockquotes, code fences, and horizontal rules."
+      inputs: [app.js, SC-03-Transforms, INV-03-AmbiguousRaw]
+      outputs:
+        - "app.js: LIVE_MD_RULES constant describing regex, trigger key, block type, and apply() callback"
+        - "Documentation comment enumerating precedence (code fence > horizontal rule > heading > list > blockquote)"
+      constraints:
+        - "Rules MUST only fire at column 0 (ignoring whitespace) and only on space/enter/paste triggers (SC-03-Watcher)."
+        - "Heading levels MUST be clamped to h1-h3 (#, ##, ###)."
+        - "List rules MUST recognize '- ', '* ', and ordered list '1. ' prefix."
+        - "Triple backticks MUST toggle lmInCodeFence and respect existing fence language hints."
+        - "Horizontal rule MUST require three hyphens with nothing else on the line to avoid ambiguous transformations (INV-03-AmbiguousRaw)."
+      derived_from: [SC-03-Transforms, SC-03-Watcher, INV-03-AmbiguousRaw, AC-01, AC-02, AC-04]
+      acceptance_tests:
+        - "Typing '# Title' followed by space queues a heading rule hit with level=1 (AC-01)."
+        - "Typing '- item' followed by space queues a bullet list rule hit (AC-02)."
+        - "Entering '```' at column 0 toggles lmInCodeFence true until the closing fence (AC-04)."
+        - "Typing '---' + enter on an otherwise empty line produces a horizontal rule marker."
+
+    - id: STEP-03-03
+      description: "Attach CodeMirror event hooks that call the transform engine when Live Markdown is enabled."
+      inputs: [app.js CodeMirror setup, MarkdownTransformEngine, SC-03-Watcher, INV-03-Performance10k]
+      outputs:
+        - "app.js: editor.on('beforeChange') guard to detect triggers and run transformations via editor.operation()"
+        - "app.js: inputRead + paste handlers that batch-transform multi-line input while respecting enableLiveMarkdown"
+        - "State wiring between enableLiveMarkdown, vimEnabled, and hook activation"
+      constraints:
+        - "Handlers MUST bail immediately when enableLiveMarkdown is false or Vim is enabled (SC-03-Vim)."
+        - "Paste handler MUST process at most 200 lines per event to stay within performance budget (INV-03-Performance10k)."
+        - "Multiple simultaneous changes MUST be wrapped in editor.operation() for undo safety."
+      derived_from: [SC-03-Watcher, SC-03-Vim, INV-03-Performance10k, AC-01, AC-02, AC-03, AC-04]
+      acceptance_tests:
+        - "With Live Markdown off, typing '# ' leaves the line untouched."
+        - "With Live Markdown on and Vim off, typing '# ' triggers the heading rule hook exactly once per line."
+        - "Pasting 150 lines executes within the 10k-word constraint without freezing the UI."
+
+    - id: STEP-03-04
+      description: "Implement transformation actions for each rule with markdown-safe replacements and styling hooks."
+      inputs: [MarkdownTransformEngine, styles/live-markdown-cues, SC-03-Transforms, INV-03-MarkdownIntegrity]
+      outputs:
+        - "app.js: applyLiveMarkdownRule(lineInfo, rule) helper performing replaceRange + cursor math"
+        - "app.js: inline class toggles (e.g., editor.addLineClass) for headings, lists, blockquotes, and code fences"
+        - "styles.css: new selectors (.cm-live-md-heading, .cm-live-md-list, .cm-live-md-quote, .cm-live-md-fence) for gentle cues"
+      constraints:
+        - "Replacements MUST leave canonical markdown characters in the document to keep Save/Share output identical (INV-03-MarkdownIntegrity)."
+        - "Heading and blockquote cues MUST rely on CSS classes, not hidden characters."
+        - "Code fence transforms MUST insert both opening and closing fences when user confirms with enter to keep preview synced (AC-04)."
+        - "Horizontal rule transformation MUST insert '\n---\n' and move the cursor to the line below the rule."
+      derived_from: [SC-03-Transforms, SC-03-Goal, INV-03-MarkdownIntegrity, AC-01, AC-02, AC-03, AC-04]
+      acceptance_tests:
+        - "Heading lines receive the .cm-live-md-heading class immediately after transform (AC-01)."
+        - "List items auto-indent text to one space after the bullet and apply .cm-live-md-list class (AC-02)."
+        - "Blockquotes show .cm-live-md-quote styling yet remain markdown text starting with '> '"
+        - "Horizontal rule transformation leaves the caret on the blank line below the inserted '---'."
+
+    - id: STEP-03-05
+      description: "Add continuation/exit logic for lists, blockquotes, and code fences with undo safety."
+      inputs: [BlockExitCoordinator, editor/block-exit-manager, SC-03-Exit]
+      outputs:
+        - "app.js: detect double-enter inside quotes, blank list item exits, and code fence closing behavior"
+        - "State tracking for the current list marker so Enter auto-inserts '- ' or '1. ' on the next line"
+      constraints:
+        - "Empty list item + Enter MUST remove the bullet and drop the cursor to a blank paragraph (AC-03)."
+        - "Double Enter inside a blockquote MUST emit one blank line outside the quote (SC-03-Exit)."
+        - "Auto-continue for ordered lists MUST increment numbers without duplicating history entries."
+        - "Undo MUST revert both the auto-generated bullet and the user's keystroke in one step (AC-03)."
+      derived_from: [SC-03-Exit, SC-03-Watcher, INV-03-KeyboardFirst, AC-02, AC-03, AC-04]
+      acceptance_tests:
+        - "Pressing Enter on '- item' creates the next line '- ' ready for typing (AC-02)."
+        - "Pressing Enter on an empty list item immediately exits the list and produces a blank line (AC-03)."
+        - "Double Enter in a quote line results in text outside the blockquote."
+        - "Typing '```' + Enter creates a fenced code block and the closing fence appears after the first newline (AC-04)."
+
+    - id: STEP-03-06
+      description: "Ensure undo/redo safety and performance for live transformations."
+      inputs: [UndoHistoryGuard, SC-03-QA, INV-03-Performance10k]
+      outputs:
+        - "app.js: helpers that wrap live transformations in editor.operation() and tag origin as 'live-md'"
+        - "Stress-test utility (manual script) that inserts 10k-word documents to validate latency"
+      constraints:
+        - "Each transformation MUST create at most one undo history entry regardless of inserted characters (AC-03)."
+        - "Undo MUST restore both text and styling classes to their previous state."
+        - "Live transformations MUST complete within 16ms budget on 10k-word docs to keep typing responsive (INV-03-Performance10k)."
+      derived_from: [SC-03-Watcher, SC-03-QA, INV-03-Performance10k, AC-03, AC-04]
+      acceptance_tests:
+        - "Typing '# ' then Ctrl+Z restores the raw '# ' text."
+        - "Redo after undo restores the transformed heading and related CSS classes."
+        - "Typing continuously in a 10k-word file shows no dropped frames (measured via Performance panel)."
+
+    - id: STEP-03-07
+      description: "Integrate Live Markdown output with preview rendering, Save, and Share flows."
+      inputs: [PersistenceSyncAdapter, SC-03-SaveShare, SC-03-Sync]
+      outputs:
+        - "app.js: render() updates ensuring live classes do not leak into markdown-it input"
+        - "app.js: saveFile(), createShare(), updateLiveShare() continue using editor.getValue() with transformed markdown"
+        - "Status bar counters updated immediately after transformations"
+      constraints:
+        - "Preview MUST reflect transformations immediately via existing scheduleRender() (SC-03-Sync)."
+        - "Live share payload MUST remain valid markdown identical to what Save writes (AC-05, AC-06)."
+        - "Share/edit tokens MUST not be stored or mutated by new code (AC-09)."
+      derived_from: [SC-03-SaveShare, SC-03-Sync, INV-03-MarkdownIntegrity, INV-03-NoTokenStorage, AC-05, AC-06, AC-09]
+      acceptance_tests:
+        - "Saving after converting a list yields a .md file that renders identically when reopened (AC-05)."
+        - "Live share updates triggered by Live Markdown edits propagate to the remote preview within existing debounce window (AC-06)."
+        - "Share request payloads remain token-free and unaffected by the feature flag (AC-09)."
+
+    - id: STEP-03-08
+      description: "Handle Vim compatibility and document behavior."
+      inputs: [VimCompatibilityBridge, docs/live-markdown-help, SC-03-Vim]
+      outputs:
+        - "app.js: logic that auto-disables Live Markdown while Vim mode is active and restores the previous preference afterward"
+        - "index.html: shortcuts modal section enumerating Live Markdown triggers plus note that Vim temporarily disables the mode"
+        - "Menu copy explaining the dependency between Vim and Live Markdown"
+      constraints:
+        - "When Vim toggles on, enableLiveMarkdown MUST be set false without overwriting the persisted preference (INV-03-KeyboardFirst)."
+        - "Menu and shortcut text MUST indicate when Live Markdown is locked by Vim (AC-07)."
+        - "Documentation MUST mention how to re-enable Live Markdown after leaving Vim."
+      derived_from: [SC-03-Vim, SC-03-QA, INV-03-KeyboardFirst, AC-07, AC-08]
+      acceptance_tests:
+        - "Enabling Vim switches menu text to 'Live MD: Off (Vim)' and prevents transformations (AC-07)."
+        - "Disabling Vim restores the user's previous Live Markdown preference automatically."
+        - "Shortcuts modal lists Live Markdown triggers and states that Vim turns it off."
+
+    - id: STEP-03-09
+      description: "Add visual cues and QA guidance for Live Markdown mode."
+      inputs: [styles/live-markdown-cues, docs/live-markdown-help, SC-03-QA]
+      outputs:
+        - "styles.css: theme-aware rules for .cm-live-md-* classes and a status bar pill showing 'Live Markdown' when enabled"
+        - "index.html: QA checklist or hint block inside shortcuts modal describing manual scenarios (single paragraph, split view, nested structures, undo/redo, save/share)"
+        - "app.js: toggle that injects/removes the status bar pill when enableLiveMarkdown changes"
+      constraints:
+        - "Visual cues MUST be subtle (muted color, no layout shifts) to preserve keyboard-first focus (INV-03-KeyboardFirst)."
+        - "Status bar pill MUST hide automatically when Live Markdown is disabled or blocked by Vim."
+        - "QA copy MUST enumerate manual scenarios from Plan 03 section to guide testers (SC-03-QA)."
+      derived_from: [SC-03-Goal, SC-03-QA, INV-03-KeyboardFirst, AC-01, AC-02, AC-03, AC-04]
+      acceptance_tests:
+        - "Enabling Live Markdown shows a 'Live Markdown' chip near status-left without affecting counts."
+        - "Switching to Vim hides the chip and dims the .cm-live-md-* cues."
+        - "Shortcuts modal lists manual QA steps covering single paragraph, split view, nested structures, undo/redo, and save/share checks."
+
+  acceptance_criteria:
+    - id: PLAN03-AC01
+      description: "Typing '# Title' + space immediately styles the line as h1 while keeping valid markdown text."
+      derived_from: [AC-01, SC-03-Transforms]
+
+    - id: PLAN03-AC02
+      description: "Typing '- item' + space creates a bullet list with auto-continued bullets on Enter."
+      derived_from: [AC-02, SC-03-Transforms]
+
+    - id: PLAN03-AC03
+      description: "Pressing Enter on an empty list item exits the list; list undo/redo works in one step."
+      derived_from: [AC-03, SC-03-Exit]
+
+    - id: PLAN03-AC04
+      description: "Triple backticks produce fenced code blocks with correct opening/closing behavior and syntax highlight markers."
+      derived_from: [AC-04, SC-03-Transforms]
+
+    - id: PLAN03-AC05
+      description: "Saved files contain markdown identical to what is rendered in the live preview."
+      derived_from: [AC-05, SC-03-SaveShare]
+
+    - id: PLAN03-AC06
+      description: "Share (static or live) transmits the transformed markdown without losing content."
+      derived_from: [AC-06, SC-03-SaveShare]
+
+    - id: PLAN03-AC07
+      description: "Vim mode either disables Live Markdown cleanly or provides mapped commands without conflicts."
+      derived_from: [AC-07, SC-03-Vim]
+
+    - id: PLAN03-AC08
+      description: "Feature flag instantly disables all live transformations and UI cues when turned off."
+      derived_from: [AC-08, SC-03-FeatureFlag]
+
+    - id: PLAN03-AC09
+      description: "No share tokens or credentials are persisted or exposed in new Live Markdown code paths."
+      derived_from: [AC-09, INV-03-NoTokenStorage]

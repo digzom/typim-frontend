@@ -56,10 +56,10 @@
         <button id="menu-save" class="menu-item">Save</button>
         <button id="menu-split" class="menu-item">Split</button>
         <button id="menu-vim" class="menu-item">Vim: Off</button>
+        <button id="menu-livemd" class="menu-item">Live MD: Off</button>
         <button id="menu-theme" class="menu-item">Theme: Light</button>
         <button id="menu-fonts" class="menu-item">Fonts</button>
         <button id="menu-shortcuts" class="menu-item">Shortcuts</button>
-        <button id="menu-layout" class="menu-item">Layout</button>
         <button id="menu-share" class="menu-item">Share</button>
       </nav>
 
@@ -67,6 +67,17 @@
         <div class="pane editor-pane">
           <div id="editor" class="editor" aria-label="Markdown editor"></div>
         </div>
+        <div
+          id="split-resizer"
+          class="split-resizer"
+          role="separator"
+          aria-orientation="vertical"
+          aria-label="Resize editor and preview panes"
+          aria-valuemin="30"
+          aria-valuemax="70"
+          aria-valuenow="50"
+          tabindex="0"
+        ></div>
         <div class="pane preview-pane">
           <article id="preview" class="preview"></article>
         </div>
@@ -185,22 +196,15 @@
                 <span class="shortcut-key">Ctrl/Cmd + /</span>
                 <span class="shortcut-action">Shortcuts</span>
               </div>
+              <div class="shortcut-row">
+                <span class="shortcut-key">Ctrl/Cmd + Shift + L</span>
+                <span class="shortcut-action">Toggle Live Markdown</span>
+              </div>
+              <div class="shortcut-row">
+                <span class="shortcut-key">Ctrl + W</span>
+                <span class="shortcut-action">Delete previous word</span>
+              </div>
             </div>
-          </div>
-        </div>
-      </div>
-      <div id="layout-modal" class="modal" aria-hidden="true">
-        <div class="modal-card" role="dialog" aria-modal="true">
-          <div class="modal-header">
-            <h2>Layout</h2>
-            <button id="layout-close" class="ghost">Close</button>
-          </div>
-          <div class="modal-body">
-            <label class="field">
-              <span>Container width</span>
-              <input id="layout-width" type="range" min="980" max="1600" step="20" />
-            </label>
-            <p class="modal-hint">Wider layouts work best on large screens.</p>
           </div>
         </div>
       </div>
