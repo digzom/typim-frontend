@@ -240,6 +240,7 @@ body.resizing * {
   overflow: hidden;
   display: flex;
   min-height: 0;
+  min-width: 0;
   justify-content: center;
 }
 
@@ -424,7 +425,7 @@ body.resizing * {
 }
 
 .split-off .workspace {
-  grid-template-columns: 1fr;
+  grid-template-columns: minmax(0, 1fr);
 }
 
 .focus .topbar,
@@ -557,7 +558,7 @@ body.resizing * {
 }
 
 .focus .workspace {
-  grid-template-columns: 1fr;
+  grid-template-columns: minmax(0, 1fr);
   padding: 0;
 }
 
@@ -596,7 +597,7 @@ body.resizing * {
   }
 
   .workspace {
-    grid-template-columns: 1fr;
+    grid-template-columns: minmax(0, 1fr);
   }
 
   .split-resizer {
@@ -709,7 +710,7 @@ body.live-md .split-resizer {
 
 /* Single pane layout in live mode */
 body.live-md .workspace {
-  grid-template-columns: 1fr;
+  grid-template-columns: minmax(0, 1fr);
 }
 
 /* Live mode editor typography - mirror preview look-and-feel */
@@ -755,6 +756,53 @@ body.live-md .editor-pane .cm-lm-blockquote {
 /* Preserve caret visibility in live mode */
 body.live-md .editor-pane .CodeMirror-cursor {
   border-left-color: var(--ink);
+}
+
+/* Bullet glyph widget for unordered lists in live mode */
+.cm-lm-bullet {
+  display: inline-block;
+  width: 1.2em;
+  text-align: center;
+  color: var(--muted);
+  font-size: 0.7em;
+  vertical-align: middle;
+  pointer-events: none;
+}
+
+/* Neutralize CodeMirror's cm-link underline on [brackets] in live mode */
+body.live-md .editor-pane .cm-link {
+  text-decoration: none;
+  color: inherit;
+}
+
+/* Trash / clear button */
+.trash-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 6px;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  background: transparent;
+  cursor: pointer;
+  color: var(--muted);
+  transition: background 0.2s ease, border-color 0.2s ease, color 0.2s ease;
+}
+
+.trash-btn:hover {
+  background: var(--panel-soft);
+  border-color: var(--border);
+  color: var(--danger);
+}
+
+.trash-btn svg {
+  width: 16px;
+  height: 16px;
+  stroke: currentColor;
+  fill: none;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
 }
 
 @media (max-width: 600px) {

@@ -72,6 +72,7 @@ let activePointerId = null;
 // STEP-002: Separate collections for style marks and symbol-hiding marks
 let liveMarkdownStyleMarks = [];
 let liveMarkdownSymbolMarks = [];
+let liveMarkdownBulletMarks = [];
 
 const shareState = {
   id: null,
@@ -388,12 +389,14 @@ const handleResizerKeydown = (event) => {
   applySplitRatio(nextRatio);
 };
 
-// STEP-002: Clear both style and symbol marks
+// STEP-002: Clear style, symbol, and bullet marks
 const clearLiveMarkdownMarks = () => {
   liveMarkdownStyleMarks.forEach((mark) => mark.clear());
   liveMarkdownStyleMarks = [];
   liveMarkdownSymbolMarks.forEach((mark) => mark.clear());
   liveMarkdownSymbolMarks = [];
+  liveMarkdownBulletMarks.forEach((mark) => mark.clear());
+  liveMarkdownBulletMarks = [];
 };
 
 // STEP-002: Returns { className, symbolMasks } where symbolMasks is array of { from, to }
@@ -409,11 +412,16 @@ const classifyLine = (lineText) => {
     return result;
   }
 
-  // Unordered list: hide '- ', '* ', '+ ' prefix
+  // Unordered list: replace '- ', '* ', '+ ' with bullet widget
   const ulMatch = lineText.match(/^(\s*)([-*+])(\s+)(.*)$/);
   if (ulMatch && ulMatch[2]) {
     result.className = "cm-lm-ul";
-    result.symbolMasks.push({ from: ulMatch[1].length, to: ulMatch[1].length + 1 + ulMatch[3].length });
+    // Replace marker char with bullet glyph, collapse trailing space
+    result.bulletReplace = {
+      from: ulMatch[1].length,
+      markerEnd: ulMatch[1].length + 1,
+      to: ulMatch[1].length + 1 + ulMatch[3].length,
+    };
     return result;
   }
 
@@ -468,7 +476,7 @@ const refreshLiveMarkdownPresentation = () => {
       lmInCodeFence = !lmInCodeFence;
     }
 
-    const { className, symbolMasks } = classifyLine(text);
+    const { className, symbolMasks, bulletReplace } = classifyLine(text);
 
     // Apply typography class to entire line
     if (className) {
@@ -484,6 +492,31 @@ const refreshLiveMarkdownPresentation = () => {
           editor.markText(
             { line: i, ch: mask.from },
             { line: i, ch: mask.to },
+            { collapsed: true, clearOnEnter: true },
+          ),
+        );
+      }
+    }
+
+    // Replace bullet marker with glyph widget
+    if (bulletReplace) {
+      const br = bulletReplace;
+      const bulletSpan = document.createElement("span");
+      bulletSpan.className = "cm-lm-bullet";
+      bulletSpan.textContent = "•";
+      liveMarkdownBulletMarks.push(
+        editor.markText(
+          { line: i, ch: br.from },
+          { line: i, ch: br.markerEnd },
+          { replacedWith: bulletSpan, clearOnEnter: true },
+        ),
+      );
+      // Collapse trailing space after bullet
+      if (br.markerEnd < br.to) {
+        liveMarkdownSymbolMarks.push(
+          editor.markText(
+            { line: i, ch: br.markerEnd },
+            { line: i, ch: br.to },
             { collapsed: true, clearOnEnter: true },
           ),
         );
@@ -1055,6 +1088,19 @@ const toggleFocus = () => {
 };
 
 focusBtn.addEventListener("click", toggleFocus);
+
+// Trash / clear button (preserves undo history via replaceRange)
+const trashBtn = document.getElementById("trash-btn");
+trashBtn.addEventListener("click", () => {
+  const content = editor.getValue();
+  if (!content.trim()) return; // already empty
+  if (!confirm("Clear all text? You can undo with Ctrl+Z.")) return;
+  const lastLine = editor.lastLine();
+  editor.replaceRange("", { line: 0, ch: 0 }, { line: lastLine, ch: editor.getLine(lastLine).length });
+  docTitle.value = "Untitled";
+  render();
+  editor.focus();
+});
 
 // ============================================================
 // Keyboard Shortcuts
