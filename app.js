@@ -477,14 +477,14 @@ const refreshLiveMarkdownPresentation = () => {
       );
     }
 
-    // Apply symbol masks to hide markdown control characters
+    // Collapse symbol marks so they take no visual space
     if (symbolMasks && symbolMasks.length > 0) {
       for (const mask of symbolMasks) {
         liveMarkdownSymbolMarks.push(
           editor.markText(
             { line: i, ch: mask.from },
             { line: i, ch: mask.to },
-            { className: "cm-lm-symbol-mask" }
+            { collapsed: true, clearOnEnter: true },
           ),
         );
       }
