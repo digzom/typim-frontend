@@ -53,6 +53,9 @@ let currentTheme = "light";
 let enableLiveMarkdown = false;
 let lmInCodeFence = false;
 
+// Live mode state preservation (STEP-001)
+let preLiveSplitState = null; // 'split' or 'single' - remembers state before live mode
+
 // Split resizer constants
 const SPLIT_RATIO_KEY = "splitRatio";
 const SPLIT_RATIO_DEFAULT = 0.5;
@@ -66,7 +69,9 @@ const LIVE_MD_KEY = "enableLiveMarkdown";
 let splitRatio = SPLIT_RATIO_DEFAULT;
 let isResizing = false;
 let activePointerId = null;
-let liveMarkdownMarks = [];
+// STEP-002: Separate collections for style marks and symbol-hiding marks
+let liveMarkdownStyleMarks = [];
+let liveMarkdownSymbolMarks = [];
 
 const shareState = {
   id: null,
@@ -142,7 +147,12 @@ const isAnyModalOpen = () => {
   );
 };
 
+// STEP-004: Focus guard using editor.hasFocus() plus wrapper containment
 const isEditorFocused = () => {
+  // Primary check: CodeMirror's own focus state
+  if (editor.hasFocus()) return true;
+
+  // Fallback: check if active element is within editor wrapper
   const active = document.activeElement;
   if (!active) return false;
   const cmWrapper = editor.getWrapperElement();
@@ -291,26 +301,36 @@ const updateResizerVisibility = () => {
   }
 };
 
+// STEP-005: Compute mode-specific width tokens
 const computeWidthTokens = () => {
   if (isMobile()) {
     return { maxWidthPx: "100%", paddingInlinePx: "20px" };
   }
 
+  // Focus mode: 1400px max width
   if (document.body.classList.contains("focus")) {
-    return { maxWidthPx: "1200px", paddingInlinePx: "56px" };
+    return { maxWidthPx: "1400px", paddingInlinePx: "56px" };
   }
 
+  // Single mode (including live-md): 1320px max width
   if (document.body.classList.contains("split-off")) {
-    return { maxWidthPx: "1200px", paddingInlinePx: "56px" };
+    return { maxWidthPx: "1320px", paddingInlinePx: "56px" };
   }
 
-  return { maxWidthPx: "900px", paddingInlinePx: "40px" };
+  // Split mode: 1100px max width per pane
+  return { maxWidthPx: "1100px", paddingInlinePx: "40px" };
 };
 
+// STEP-005: Apply width tokens to CSS variables
 const applyWidthTokens = () => {
   const tokens = computeWidthTokens();
   document.documentElement.style.setProperty("--container-width", tokens.maxWidthPx);
   document.documentElement.style.setProperty("--pane-inline-padding", tokens.paddingInlinePx);
+
+  // Also set explicit content max tokens for reference
+  document.documentElement.style.setProperty("--content-max-single", "1320px");
+  document.documentElement.style.setProperty("--content-max-split", "1100px");
+  document.documentElement.style.setProperty("--content-max-focus", "1400px");
 };
 
 const handleResizerPointerDown = (event) => {
@@ -368,41 +388,106 @@ const handleResizerKeydown = (event) => {
   applySplitRatio(nextRatio);
 };
 
+// STEP-002: Clear both style and symbol marks
 const clearLiveMarkdownMarks = () => {
-  liveMarkdownMarks.forEach((mark) => mark.clear());
-  liveMarkdownMarks = [];
+  liveMarkdownStyleMarks.forEach((mark) => mark.clear());
+  liveMarkdownStyleMarks = [];
+  liveMarkdownSymbolMarks.forEach((mark) => mark.clear());
+  liveMarkdownSymbolMarks = [];
 };
 
+// STEP-002: Returns { className, symbolMasks } where symbolMasks is array of { from, to }
 const classifyLine = (lineText) => {
-  if (/^#{1,6}\s+/.test(lineText)) return `cm-lm-h${Math.min(6, (lineText.match(/^#+/) || [""])[0].length)}`;
-  if (/^\s*([-*+])\s+/.test(lineText)) return "cm-lm-ul";
-  if (/^\s*\d+\.\s+/.test(lineText)) return "cm-lm-ol";
-  if (/^>\s+/.test(lineText)) return "cm-lm-blockquote";
-  if (/^\s*([-*_])(?:\s*\1){2,}\s*$/.test(lineText)) return "cm-lm-hr";
-  if (/^```/.test(lineText) || lmInCodeFence) return "cm-lm-code-fence";
-  return null;
+  const result = { className: null, symbolMasks: [] };
+
+  // Heading: hide '# ' prefix
+  const headingMatch = lineText.match(/^(#{1,6})(\s+)(.*)$/);
+  if (headingMatch) {
+    const level = headingMatch[1].length;
+    result.className = `cm-lm-h${Math.min(6, level)}`;
+    result.symbolMasks.push({ from: 0, to: headingMatch[1].length + headingMatch[2].length });
+    return result;
+  }
+
+  // Unordered list: hide '- ', '* ', '+ ' prefix
+  const ulMatch = lineText.match(/^(\s*)([-*+])(\s+)(.*)$/);
+  if (ulMatch && ulMatch[2]) {
+    result.className = "cm-lm-ul";
+    result.symbolMasks.push({ from: ulMatch[1].length, to: ulMatch[1].length + 1 + ulMatch[3].length });
+    return result;
+  }
+
+  // Ordered list: hide '1. ', '2. ' etc prefix
+  const olMatch = lineText.match(/^(\s*)(\d+\.)(\s+)(.*)$/);
+  if (olMatch && olMatch[2]) {
+    result.className = "cm-lm-ol";
+    result.symbolMasks.push({ from: olMatch[1].length, to: olMatch[1].length + olMatch[2].length + olMatch[3].length });
+    return result;
+  }
+
+  // Blockquote: hide '> ' prefix
+  const bqMatch = lineText.match(/^(\u003e)(\s+)(.*)$/);
+  if (bqMatch) {
+    result.className = "cm-lm-blockquote";
+    result.symbolMasks.push({ from: 0, to: 1 + bqMatch[2].length });
+    return result;
+  }
+
+  // Horizontal rule
+  if (/^\s*([-*_])(?:\s*\1){2,}\s*$/.test(lineText)) {
+    result.className = "cm-lm-hr";
+    return result;
+  }
+
+  // Code fence
+  if (/^```/.test(lineText) || lmInCodeFence) {
+    result.className = "cm-lm-code-fence";
+    // Hide fence ticks
+    if (/^```/.test(lineText)) {
+      result.symbolMasks.push({ from: 0, to: lineText.match(/^```[a-zA-Z0-9]*/)[0].length });
+    }
+    return result;
+  }
+
+  return result;
 };
 
-const refreshLiveMarkdownStyling = () => {
+// STEP-002: Replace live markdown styling with syntax masking
+const refreshLiveMarkdownPresentation = () => {
   clearLiveMarkdownMarks();
   if (!enableLiveMarkdown) return;
 
   const lineCount = editor.lineCount();
   lmInCodeFence = false;
+
   for (let i = 0; i < lineCount; i += 1) {
     const text = editor.getLine(i);
+
+    // Track code fence state
     if (/^```/.test(text)) {
       lmInCodeFence = !lmInCodeFence;
-      liveMarkdownMarks.push(
-        editor.markText({ line: i, ch: 0 }, { line: i, ch: text.length }, { className: "cm-lm-code-fence" }),
-      );
-      continue;
     }
-    const className = classifyLine(text);
+
+    const { className, symbolMasks } = classifyLine(text);
+
+    // Apply typography class to entire line
     if (className) {
-      liveMarkdownMarks.push(
+      liveMarkdownStyleMarks.push(
         editor.markText({ line: i, ch: 0 }, { line: i, ch: text.length }, { className }),
       );
+    }
+
+    // Apply symbol masks to hide markdown control characters
+    if (symbolMasks && symbolMasks.length > 0) {
+      for (const mask of symbolMasks) {
+        liveMarkdownSymbolMarks.push(
+          editor.markText(
+            { line: i, ch: mask.from },
+            { line: i, ch: mask.to },
+            { className: "cm-lm-symbol-mask" }
+          ),
+        );
+      }
     }
   }
 };
@@ -440,11 +525,49 @@ const maybeTransformLiveMarkdown = (_instance, changeObj) => {
   }
 };
 
-const toggleLiveMarkdown = () => {
-  enableLiveMarkdown = !enableLiveMarkdown;
+// STEP-001: Live mode state controller with single-pane enforcement
+const setLiveModeState = (enabled) => {
+  enableLiveMarkdown = enabled;
+
+  if (enabled) {
+    // Remember current split state before forcing single pane
+    const wasSplitOff = document.body.classList.contains("split-off");
+    preLiveSplitState = wasSplitOff ? "single" : "split";
+
+    // Force single pane on desktop
+    if (!isMobile()) {
+      document.body.classList.add("split-off");
+    }
+
+    // Add live-md body class for styling
+    document.body.classList.add("live-md");
+  } else {
+    // Remove live-md body class
+    document.body.classList.remove("live-md");
+
+    // Restore previous split state on desktop
+    if (!isMobile() && preLiveSplitState) {
+      if (preLiveSplitState === "split") {
+        document.body.classList.remove("split-off");
+      } else {
+        document.body.classList.add("split-off");
+      }
+    }
+    preLiveSplitState = null;
+  }
+
   localStorage.setItem(LIVE_MD_KEY, enableLiveMarkdown ? "on" : "off");
   syncLiveMdButton();
-  refreshLiveMarkdownStyling();
+  updateSplitButton();
+  updateResizerVisibility();
+  applyWidthTokens();
+  editor.refresh();
+  refreshLiveMarkdownPresentation();
+};
+
+const toggleLiveMarkdown = () => {
+  setLiveModeState(!enableLiveMarkdown);
+  editor.focus();
 };
 
 const initLayout = () => {
@@ -460,11 +583,14 @@ const initLayout = () => {
   splitResizer.addEventListener("keydown", handleResizerKeydown);
 
   const storedLiveMd = localStorage.getItem(LIVE_MD_KEY);
-  enableLiveMarkdown = storedLiveMd === "on";
-  syncLiveMdButton();
-  editor.on("changes", refreshLiveMarkdownStyling);
+  const shouldEnableLiveMd = storedLiveMd === "on";
+  if (shouldEnableLiveMd) {
+    setLiveModeState(true);
+  } else {
+    syncLiveMdButton();
+  }
+  editor.on("changes", refreshLiveMarkdownPresentation);
   editor.on("inputRead", maybeTransformLiveMarkdown);
-  refreshLiveMarkdownStyling();
 };
 
 // ============================================================
@@ -503,16 +629,101 @@ const scheduleRender = () => {
 editor.on("change", scheduleRender);
 editor.on("change", () => scheduleLiveSync());
 
-editor.on("scroll", () => {
-  const info = editor.getScrollInfo();
-  const ratio = info.top / (info.height - info.clientHeight || 1);
-  preview.scrollTop = ratio * (preview.scrollHeight - preview.clientHeight);
-});
+// STEP-006: Scroll sync state with recursion guard
+const scrollSyncState = {
+  activeSource: null, // 'editor' or 'preview'
+  isSyncing: false,
+  pendingRaf: null,
+  lastEditorScroll: 0,
+  lastPreviewScroll: 0,
+};
 
-preview.addEventListener("scroll", () => {
-  const ratio = preview.scrollTop / (preview.scrollHeight - preview.clientHeight || 1);
+// STEP-006: Check if scroll sync should be enabled
+const isScrollSyncEnabled = () => {
+  // Disable sync when preview is not visible
+  if (isMobile()) return false;
+  if (document.body.classList.contains("focus")) return false;
+  if (document.body.classList.contains("split-off")) return false;
+  if (document.body.classList.contains("live-md")) return false;
+  return true;
+};
+
+// STEP-006: Sync editor scroll to preview
+const syncEditorToPreview = () => {
+  if (scrollSyncState.isSyncing || !isScrollSyncEnabled()) return;
+
   const info = editor.getScrollInfo();
-  editor.scrollTo(null, ratio * (info.height - info.clientHeight));
+  const scrollRatio = info.top / (info.height - info.clientHeight || 1);
+  const targetScrollTop = scrollRatio * (preview.scrollHeight - preview.clientHeight);
+
+  // Prevent recursion
+  scrollSyncState.isSyncing = true;
+  scrollSyncState.activeSource = 'editor';
+
+  preview.scrollTop = targetScrollTop;
+  scrollSyncState.lastPreviewScroll = preview.scrollTop;
+
+  // Release guard after this frame
+  if (scrollSyncState.pendingRaf) {
+    cancelAnimationFrame(scrollSyncState.pendingRaf);
+  }
+  scrollSyncState.pendingRaf = requestAnimationFrame(() => {
+    scrollSyncState.isSyncing = false;
+    scrollSyncState.activeSource = null;
+    scrollSyncState.pendingRaf = null;
+  });
+};
+
+// STEP-006: Sync preview scroll to editor
+const syncPreviewToEditor = () => {
+  if (scrollSyncState.isSyncing || !isScrollSyncEnabled()) return;
+
+  const scrollRatio = preview.scrollTop / (preview.scrollHeight - preview.clientHeight || 1);
+  const info = editor.getScrollInfo();
+  const targetScrollTop = scrollRatio * (info.height - info.clientHeight);
+
+  // Prevent recursion
+  scrollSyncState.isSyncing = true;
+  scrollSyncState.activeSource = 'preview';
+
+  editor.scrollTo(null, targetScrollTop);
+  scrollSyncState.lastEditorScroll = editor.getScrollInfo().top;
+
+  // Release guard after this frame
+  if (scrollSyncState.pendingRaf) {
+    cancelAnimationFrame(scrollSyncState.pendingRaf);
+  }
+  scrollSyncState.pendingRaf = requestAnimationFrame(() => {
+    scrollSyncState.isSyncing = false;
+    scrollSyncState.activeSource = null;
+    scrollSyncState.pendingRaf = null;
+  });
+};
+
+// STEP-006: Attach scroll handlers with guards
+editor.on("scroll", syncEditorToPreview);
+preview.addEventListener("scroll", syncPreviewToEditor);
+
+// STEP-007: Cursor scrolloff - maintain 120px vertical breathing room
+const CURSOR_SCROLL_MARGIN_PX = 120;
+
+const applyCursorScrolloff = () => {
+  const cursor = editor.getCursor();
+  // scrollIntoView with margin will keep cursor away from viewport edges
+  editor.scrollIntoView(
+    { line: cursor.line, ch: cursor.ch },
+    CURSOR_SCROLL_MARGIN_PX
+  );
+};
+
+// Apply scrolloff on cursor activity and changes
+editor.on("cursorActivity", applyCursorScrolloff);
+editor.on("change", (_instance, changeObj) => {
+  // Only apply on input changes (typing), not programmatic changes
+  if (changeObj && (changeObj.origin === "+input" || changeObj.origin === "+delete")) {
+    // Defer to let the editor update its layout first
+    requestAnimationFrame(applyCursorScrolloff);
+  }
 });
 
 // ============================================================
@@ -809,6 +1020,11 @@ const updateSplitButton = () => {
 };
 
 const toggleSplit = () => {
+  // STEP-001: Live mode forces single pane - split toggle is disabled in live mode
+  if (enableLiveMarkdown && !isMobile()) {
+    return;
+  }
+
   if (isMobile()) {
     document.body.classList.toggle("mobile-preview");
   } else {

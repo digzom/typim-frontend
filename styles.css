@@ -21,6 +21,11 @@
   --hint-bg: rgba(32, 32, 32, 0.88);
   --hint-ink: #f6f6f6;
   --danger: #b54236;
+
+  /* STEP-005: Desktop width and padding tokens */
+  --content-max-single: 1320px;
+  --content-max-split: 1100px;
+  --content-max-focus: 1400px;
   --pane-inline-padding: 56px;
 }
 
@@ -255,7 +260,8 @@ body.resizing * {
 }
 
 .editor-pane .CodeMirror-scroll {
-  padding: 36px var(--pane-inline-padding) 64px;
+  /* STEP-007: Increased top/bottom padding for cursor breathing room */
+  padding: 64px var(--pane-inline-padding) 140px;
 }
 
 .editor-pane .CodeMirror-gutters {
@@ -271,7 +277,8 @@ body.resizing * {
   width: 100%;
   height: 100%;
   overflow-y: auto;
-  padding: 36px var(--pane-inline-padding) 64px;
+  /* STEP-007: Increased top/bottom padding for cursor breathing room */
+  padding: 64px var(--pane-inline-padding) 140px;
   max-width: var(--container-width, 900px);
   margin: 0 auto;
 }
@@ -576,7 +583,8 @@ body.resizing * {
 
   .editor-pane .CodeMirror-scroll,
   .preview {
-    padding: 28px var(--pane-inline-padding) 48px;
+    /* STEP-007: Consistent breathing room on mobile */
+    padding: 48px var(--pane-inline-padding) 100px;
   }
 
   .preview-pane {
@@ -674,6 +682,79 @@ body.resizing * {
 .editor-pane .cm-lm-hr {
   border-bottom: 1px solid var(--border);
   padding-bottom: 0.5em;
+}
+
+/* STEP-002: Symbol masks to hide markdown control characters in live mode */
+.editor-pane .cm-lm-symbol-mask {
+  font-size: 0;
+  opacity: 0;
+  color: transparent;
+}
+
+/* Ensure symbol masks don't affect layout */
+.editor-pane .cm-lm-symbol-mask::before,
+.editor-pane .cm-lm-symbol-mask::after {
+  display: none;
+}
+
+/* ============================================================
+   STEP-003: Live Mode Presentation Styles
+   ============================================================ */
+
+/* Hide preview pane and resizer in live mode on desktop */
+body.live-md .preview-pane,
+body.live-md .split-resizer {
+  display: none;
+}
+
+/* Single pane layout in live mode */
+body.live-md .workspace {
+  grid-template-columns: 1fr;
+}
+
+/* Live mode editor typography - mirror preview look-and-feel */
+body.live-md .editor-pane .CodeMirror {
+  font-family: var(--font-body);
+  font-size: 1.05rem;
+  line-height: 1.7;
+}
+
+/* Live mode heading sizes - match preview */
+body.live-md .editor-pane .cm-lm-h1 {
+  font-size: 2.15rem;
+  margin: 0.3em 0 0.6em;
+  line-height: 1.3;
+}
+
+body.live-md .editor-pane .cm-lm-h2 {
+  font-size: 1.6rem;
+  margin: 1.4em 0 0.5em;
+  line-height: 1.35;
+}
+
+body.live-md .editor-pane .cm-lm-h3 {
+  font-size: 1.25rem;
+  margin: 1.2em 0 0.4em;
+  line-height: 1.4;
+}
+
+/* Live mode list styling */
+body.live-md .editor-pane .cm-lm-ul,
+body.live-md .editor-pane .cm-lm-ol {
+  padding-left: 1.5em;
+}
+
+/* Live mode blockquote styling */
+body.live-md .editor-pane .cm-lm-blockquote {
+  margin: 1.2em 0;
+  padding: 0.2em 1em;
+  border-left: 3px solid var(--border);
+  color: var(--muted);
+}
+
+/* Preserve caret visibility in live mode */
+body.live-md .editor-pane .CodeMirror-cursor {
+  border-left-color: var(--ink);
 }
 
 @media (max-width: 600px) {
