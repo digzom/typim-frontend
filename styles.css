@@ -103,6 +103,7 @@ body[data-theme="dark"] .action-menu {
     opacity: 0;
     transform: translateY(16px);
   }
+
   to {
     opacity: 1;
     transform: translateY(0);
@@ -179,9 +180,7 @@ button:active {
   --split-resizer-width: 6px;
   display: grid;
   grid-template-columns:
-    minmax(0, calc((100% - var(--split-resizer-width)) * var(--split-ratio)))
-    var(--split-resizer-width)
-    minmax(0, calc((100% - var(--split-resizer-width)) * (1 - var(--split-ratio))));
+    minmax(0, calc((100% - var(--split-resizer-width)) * var(--split-ratio))) var(--split-resizer-width) minmax(0, calc((100% - var(--split-resizer-width)) * (1 - var(--split-ratio))));
   gap: 0;
   padding: 0;
   min-height: 0;
@@ -760,6 +759,28 @@ body.live-md .editor-pane .cm-lm-blockquote {
 /* Preserve caret visibility in live mode */
 body.live-md .editor-pane .CodeMirror-cursor {
   border-left-color: var(--ink);
+}
+
+/* Inline formatting in live mode — ensure visual styling works after hiding delimiters */
+body.live-md .editor-pane .cm-em {
+  font-style: italic;
+}
+
+body.live-md .editor-pane .cm-strong {
+  font-weight: 600;
+}
+
+body.live-md .editor-pane .cm-comment {
+  font-family: var(--font-mono);
+  background: var(--code-inline-bg);
+  padding: 0.1em 0.3em;
+  border-radius: 3px;
+  font-size: 0.92em;
+}
+
+/* Neovim-like scrolloff — extra bottom padding so cursor never hits viewport edge */
+.editor-pane .CodeMirror-lines {
+  padding-bottom: 40vh;
 }
 
 /* Bullet glyph widget for unordered lists in live mode */

@@ -524,11 +524,14 @@ const refreshLiveMarkdownPresentation = () => {
       }
     }
 
-    // Hide inline formatting delimiters (bold/italic asterisks, underscores)
-    if (className !== "cm-lm-code-fence") {
-      const tokens = editor.getLineTokens(i);
+    // Hide inline formatting delimiters (bold/italic asterisks, underscores, code backticks)
+    if (className !== "cm-lm-code-fence" && !lmInCodeFence) {
+      const tokens = editor.getLineTokens(i, true);
       for (const token of tokens) {
-        if (token.type && /\bformatting-em\b|\bformatting-strong\b/.test(token.type)) {
+        if (
+          token.type &&
+          /\bformatting(?:-em|-strong|-code|-strikethrough)\b/.test(token.type)
+        ) {
           liveMarkdownSymbolMarks.push(
             editor.markText(
               { line: i, ch: token.start },
@@ -1197,6 +1200,6 @@ window.addEventListener("load", () => {
   const end = editor.getValue().length;
   editor.setCursor(editor.posFromIndex(end));
   if ("serviceWorker" in navigator) {
-    navigator.serviceWorker.register("/sw.js").catch(() => {});
+    navigator.serviceWorker.register("/sw.js").catch(() => { });
   }
 });
