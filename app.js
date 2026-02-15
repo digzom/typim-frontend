@@ -129,6 +129,7 @@ const editor = window.CodeMirror(editorRoot, {
   lineWrapping: true,
   lineNumbers: false,
   keyMap: "default",
+  cursorScrollMargin: 120,
   extraKeys: {
     "Ctrl-W": "delWordBefore",
   },
@@ -522,6 +523,22 @@ const refreshLiveMarkdownPresentation = () => {
         );
       }
     }
+
+    // Hide inline formatting delimiters (bold/italic asterisks, underscores)
+    if (className !== "cm-lm-code-fence") {
+      const tokens = editor.getLineTokens(i);
+      for (const token of tokens) {
+        if (token.type && /\bformatting-em\b|\bformatting-strong\b/.test(token.type)) {
+          liveMarkdownSymbolMarks.push(
+            editor.markText(
+              { line: i, ch: token.start },
+              { line: i, ch: token.end },
+              { collapsed: true, clearOnEnter: true },
+            ),
+          );
+        }
+      }
+    }
   }
 };
 
@@ -736,28 +753,6 @@ const syncPreviewToEditor = () => {
 // STEP-006: Attach scroll handlers with guards
 editor.on("scroll", syncEditorToPreview);
 preview.addEventListener("scroll", syncPreviewToEditor);
-
-// STEP-007: Cursor scrolloff - maintain 120px vertical breathing room
-const CURSOR_SCROLL_MARGIN_PX = 120;
-
-const applyCursorScrolloff = () => {
-  const cursor = editor.getCursor();
-  // scrollIntoView with margin will keep cursor away from viewport edges
-  editor.scrollIntoView(
-    { line: cursor.line, ch: cursor.ch },
-    CURSOR_SCROLL_MARGIN_PX
-  );
-};
-
-// Apply scrolloff on cursor activity and changes
-editor.on("cursorActivity", applyCursorScrolloff);
-editor.on("change", (_instance, changeObj) => {
-  // Only apply on input changes (typing), not programmatic changes
-  if (changeObj && (changeObj.origin === "+input" || changeObj.origin === "+delete")) {
-    // Defer to let the editor update its layout first
-    requestAnimationFrame(applyCursorScrolloff);
-  }
-});
 
 // ============================================================
 // File Operations

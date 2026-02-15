@@ -248,6 +248,10 @@ body.resizing * {
   border-left: 1px solid var(--border);
 }
 
+.editor-pane .editor {
+  width: 100%;
+}
+
 .editor-pane .CodeMirror {
   width: 100%;
   height: 100%;
