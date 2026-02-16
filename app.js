@@ -523,25 +523,6 @@ const refreshLiveMarkdownPresentation = () => {
         );
       }
     }
-
-    // Hide inline formatting delimiters (bold/italic asterisks, underscores, code backticks)
-    if (className !== "cm-lm-code-fence" && !lmInCodeFence) {
-      const tokens = editor.getLineTokens(i, true);
-      for (const token of tokens) {
-        if (
-          token.type &&
-          /\bformatting(?:-em|-strong|-code|-strikethrough)\b/.test(token.type)
-        ) {
-          liveMarkdownSymbolMarks.push(
-            editor.markText(
-              { line: i, ch: token.start },
-              { line: i, ch: token.end },
-              { collapsed: true, clearOnEnter: true },
-            ),
-          );
-        }
-      }
-    }
   }
 };
 

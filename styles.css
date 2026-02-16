@@ -701,6 +701,17 @@ body.resizing * {
   display: none;
 }
 
+/* Hide inline formatting delimiters in live mode via CodeMirror's built-in classes */
+body.live-md .editor-pane span.cm-formatting-strong,
+body.live-md .editor-pane span.cm-formatting-em,
+body.live-md .editor-pane span.cm-formatting-code,
+body.live-md .editor-pane span.cm-formatting-strikethrough {
+  font-size: 0;
+  letter-spacing: 0;
+  padding: 0;
+  margin: 0;
+}
+
 /* ============================================================
    STEP-003: Live Mode Presentation Styles
    ============================================================ */
