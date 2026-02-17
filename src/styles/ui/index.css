@@ -1,0 +1,34 @@
+/**
+ * UI style split artifact
+ */
+
+body[data-layout='mobile'] .workspace {
+  width: 100%;
+  max-width: 100%;
+}
+
+body[data-layout='single'] .workspace {
+  width: 100%;
+  max-width: 100%;
+}
+
+body[data-layout='split'] .workspace {
+  width: 100%;
+  max-width: 100%;
+}
+
+body[data-layout='focus'] .workspace {
+  width: 100%;
+  max-width: 100%;
+}
+
+/* Legacy class compatibility + canonical mobile preview selector. */
+body.mobile-preview .editor-pane,
+body[data-layout='mobile'][data-mobile-pane='preview'] .editor-pane {
+  display: none;
+}
+
+body.mobile-preview .preview-pane,
+body[data-layout='mobile'][data-mobile-pane='preview'] .preview-pane {
+  display: flex;
+}

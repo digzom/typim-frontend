@@ -1,0 +1,169 @@
+/**
+ * CSS Token System
+ * Token-based design system using CSS custom properties
+ */
+
+/* ============================================
+   Color Tokens
+   ============================================ */
+
+:root {
+  /* Semantic color tokens - Light theme defaults */
+  --color-bg-primary: #ffffff;
+  --color-bg-secondary: #fafafa;
+  --color-bg-tertiary: #f0f0f0;
+  --color-bg-elevated: #ffffff;
+
+  --color-text-primary: #1a1a1a;
+  --color-text-secondary: #666666;
+  --color-text-tertiary: #999999;
+  --color-text-muted: #b3b3b3;
+  --color-text-inverse: #ffffff;
+
+  --color-border-default: #e0e0e0;
+  --color-border-strong: #cccccc;
+  --color-border-subtle: #f0f0f0;
+
+  --color-accent-primary: #0066cc;
+  --color-accent-hover: #0052a3;
+  --color-accent-active: #003d7a;
+  --color-accent-subtle: #e6f2ff;
+
+  --color-error: #dc2626;
+  --color-error-subtle: #fef2f2;
+  --color-warning: #d97706;
+  --color-warning-subtle: #fffbeb;
+  --color-success: #16a34a;
+  --color-success-subtle: #f0fdf4;
+
+  /* Code/syntax colors */
+  --color-syntax-keyword: #d73a49;
+  --color-syntax-string: #032f62;
+  --color-syntax-comment: #6a737d;
+  --color-syntax-function: #6f42c1;
+  --color-syntax-number: #005cc5;
+
+  /* Editor specific */
+  --color-editor-bg: #ffffff;
+  --color-editor-gutter: #f7f7f7;
+  --color-editor-cursor: #1a1a1a;
+  --color-editor-selection: #b3d4fc;
+
+  /* Preview specific */
+  --color-preview-bg: #fafafa;
+  --color-preview-blockquote: #f0f0f0;
+  --color-preview-code-bg: #f5f5f5;
+}
+
+/* Dark theme */
+[data-theme='dark'] {
+  --color-bg-primary: #1a1a1a;
+  --color-bg-secondary: #252525;
+  --color-bg-tertiary: #2a2a2a;
+  --color-bg-elevated: #333333;
+
+  --color-text-primary: #e6e6e6;
+  --color-text-secondary: #b3b3b3;
+  --color-text-tertiary: #808080;
+  --color-text-muted: #666666;
+  --color-text-inverse: #1a1a1a;
+
+  --color-border-default: #404040;
+  --color-border-strong: #555555;
+  --color-border-subtle: #333333;
+
+  --color-accent-primary: #4d9fff;
+  --color-accent-hover: #66adff;
+  --color-accent-active: #80bbff;
+  --color-accent-subtle: #1a3d66;
+
+  --color-error: #ef4444;
+  --color-error-subtle: #3d1f1f;
+  --color-warning: #f59e0b;
+  --color-warning-subtle: #3d2d1f;
+  --color-success: #22c55e;
+  --color-success-subtle: #1f3d2d;
+
+  /* Code/syntax colors - Dark */
+  --color-syntax-keyword: #ff7b72;
+  --color-syntax-string: #a5d6ff;
+  --color-syntax-comment: #8b949e;
+  --color-syntax-function: #d2a8ff;
+  --color-syntax-number: #79c0ff;
+
+  /* Editor specific - Dark */
+  --color-editor-bg: #1a1a1a;
+  --color-editor-gutter: #252525;
+  --color-editor-cursor: #e6e6e6;
+  --color-editor-selection: #264f78;
+
+  /* Preview specific - Dark */
+  --color-preview-bg: #1a1a1a;
+  --color-preview-blockquote: #2a2a2a;
+  --color-preview-code-bg: #252525;
+}
+
+/* ============================================
+   Spacing Tokens
+   ============================================ */
+
+:root {
+  --space-0: 0;
+  --space-1: 0.25rem; /* 4px */
+  --space-2: 0.5rem; /* 8px */
+  --space-3: 0.75rem; /* 12px */
+  --space-4: 1rem; /* 16px */
+  --space-5: 1.25rem; /* 20px */
+  --space-6: 1.5rem; /* 24px */
+  --space-8: 2rem; /* 32px */
+  --space-10: 2.5rem; /* 40px */
+  --space-12: 3rem; /* 48px */
+  --space-16: 4rem; /* 64px */
+  --space-20: 5rem; /* 80px */
+  --space-24: 6rem; /* 96px */
+  --space-32: 8rem; /* 128px */
+}
+
+/* ============================================
+   Shadow Tokens
+   ============================================ */
+
+:root {
+  --shadow-none: none;
+  --shadow-xs: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+  --shadow-sm: 0 1px 3px 0 rgba(0, 0, 0, 0.1), 0 1px 2px 0 rgba(0, 0, 0, 0.06);
+  --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+  --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+  --shadow-xl: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+  --shadow-2xl: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
+
+  /* Dark theme shadows */
+  --shadow-dark-sm: 0 1px 3px 0 rgba(0, 0, 0, 0.3), 0 1px 2px 0 rgba(0, 0, 0, 0.2);
+  --shadow-dark-md: 0 4px 6px -1px rgba(0, 0, 0, 0.3), 0 2px 4px -1px rgba(0, 0, 0, 0.2);
+  --shadow-dark-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.3), 0 4px 6px -2px rgba(0, 0, 0, 0.2);
+}
+
+[data-theme='dark'] {
+  --shadow-sm: var(--shadow-dark-sm);
+  --shadow-md: var(--shadow-dark-md);
+  --shadow-lg: var(--shadow-dark-lg);
+}
+
+/* ============================================
+   Border Tokens
+   ============================================ */
+
+:root {
+  --radius-none: 0;
+  --radius-sm: 0.125rem; /* 2px */
+  --radius-md: 0.25rem; /* 4px */
+  --radius-lg: 0.5rem; /* 8px */
+  --radius-xl: 0.75rem; /* 12px */
+  --radius-2xl: 1rem; /* 16px */
+  --radius-full: 9999px;
+
+  --border-width-0: 0;
+  --border-width-1: 1px;
+  --border-width-2: 2px;
+  --border-width-4: 4px;
+}

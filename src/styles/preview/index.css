@@ -1,0 +1,12 @@
+/**
+ * Preview style split artifact
+ */
+
+.preview-pane,
+.preview {
+  min-width: 0;
+}
+
+[data-layout='mobile'][data-mobile-pane='editor'] .preview-pane {
+  display: none;
+}

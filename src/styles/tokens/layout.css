@@ -1,0 +1,80 @@
+/**
+ * Layout Tokens
+ * Breakpoints, container widths, and responsive utilities
+ */
+
+:root {
+  /* ============================================
+     Breakpoints (for reference in JS)
+     ============================================ */
+  --breakpoint-mobile: 900px;
+  --breakpoint-tablet: 1024px;
+  --breakpoint-desktop: 1280px;
+
+  /* ============================================
+     Container Widths
+     ============================================ */
+  --container-max-single: 1320px;
+  --container-max-split: 1100px;
+  --container-max-focus: 1400px;
+  --container-max-mobile: 100%;
+
+  /* ============================================
+     Layout Component Sizes
+     ============================================ */
+  --layout-doc-title-max-width: 25rem;
+  --layout-menu-offset-top: 3.75rem;
+  --layout-menu-min-width: 11.25rem;
+  --layout-icon-button-size: 2.25rem;
+  --layout-icon-size: 1.25rem;
+  --layout-split-resizer-width: 0.25rem;
+  --layout-modal-max-width: 30rem;
+
+  /* ============================================
+     Layout Spacing
+     ============================================ */
+  --layout-padding-x: var(--space-4);
+  --layout-padding-y: var(--space-4);
+  --layout-gap: var(--space-4);
+
+  /* ============================================
+     Z-Index Scale
+     ============================================ */
+  --z-base: 0;
+  --z-dropdown: 100;
+  --z-sticky: 200;
+  --z-topbar: 250;
+  --z-modal-backdrop: 300;
+  --z-modal: 400;
+  --z-popover: 500;
+  --z-tooltip: 600;
+}
+
+/* ============================================
+   Responsive Breakpoint Mixins (CSS Custom Media)
+   ============================================ */
+
+/* Mobile: up to 900px */
+@media (max-width: 900px) {
+  :root {
+    --layout-padding-x: var(--space-3);
+    --layout-padding-y: var(--space-3);
+    --layout-gap: var(--space-3);
+  }
+}
+
+/* Tablet: 901px to 1024px */
+@media (min-width: 901px) and (max-width: 1024px) {
+  :root {
+    --layout-padding-x: var(--space-4);
+    --layout-padding-y: var(--space-4);
+  }
+}
+
+/* Desktop: 1025px and up */
+@media (min-width: 1025px) {
+  :root {
+    --layout-padding-x: var(--space-6);
+    --layout-padding-y: var(--space-4);
+  }
+}

@@ -1,0 +1,137 @@
+/**
+ * Typography System
+ * Font families, sizes, and text styles
+ */
+
+/* ============================================
+   Font Family Tokens
+   ============================================ */
+
+:root {
+  /* Font families */
+  --font-body-serif: 'Source Serif 4', 'Iowan Old Style', 'Georgia', serif;
+  --font-body-sans: 'Source Sans 3', 'Noto Sans', 'Helvetica Neue', sans-serif;
+  --font-mono-plex: 'Source Code Pro', 'IBM Plex Mono', 'Menlo', 'Consolas', monospace;
+  --font-mono-system: ui-monospace, SFMono-Regular, 'Menlo', 'Consolas', 'Liberation Mono',
+    monospace;
+
+  /* Default font stacks */
+  --font-body: var(--font-body-serif);
+  --font-mono: var(--font-mono-plex);
+  --font-ui: var(--font-body-sans);
+}
+
+/* Font class selectors */
+.font-body-serif {
+  --font-body: var(--font-body-serif);
+}
+
+.font-body-sans {
+  --font-body: var(--font-body-sans);
+}
+
+.font-mono-plex {
+  --font-mono: var(--font-mono-plex);
+}
+
+.font-mono-system {
+  --font-mono: var(--font-mono-system);
+}
+
+/* ============================================
+   Type Scale Tokens
+   ============================================ */
+
+:root {
+  /* Base size */
+  --text-base: 1rem; /* 16px */
+
+  /* Type scale with consistent ratio (1.125 major second) */
+  --text-xs: 0.75rem; /* 12px */
+  --text-sm: 0.875rem; /* 14px */
+  --text-lg: 1.125rem; /* 18px */
+  --text-xl: 1.25rem; /* 20px */
+  --text-2xl: 1.5rem; /* 24px */
+  --text-3xl: 1.875rem; /* 30px */
+  --text-4xl: 2.25rem; /* 36px */
+
+  /* Line heights */
+  --leading-none: 1;
+  --leading-tight: 1.25;
+  --leading-snug: 1.375;
+  --leading-normal: 1.5;
+  --leading-relaxed: 1.625;
+  --leading-loose: 2;
+
+  /* Letter spacing */
+  --tracking-tight: -0.025em;
+  --tracking-normal: 0;
+  --tracking-wide: 0.025em;
+  --tracking-wider: 0.05em;
+}
+
+/* ============================================
+   Font Weight Tokens
+   ============================================ */
+
+:root {
+  --font-weight-normal: 400;
+  --font-weight-medium: 500;
+  --font-weight-semibold: 600;
+  --font-weight-bold: 700;
+}
+
+/* ============================================
+   Text Style Utilities
+   ============================================ */
+
+.text-xs {
+  font-size: var(--text-xs);
+  line-height: var(--leading-normal);
+}
+
+.text-sm {
+  font-size: var(--text-sm);
+  line-height: var(--leading-normal);
+}
+
+.text-base {
+  font-size: var(--text-base);
+  line-height: var(--leading-normal);
+}
+
+.text-lg {
+  font-size: var(--text-lg);
+  line-height: var(--leading-normal);
+}
+
+.text-xl {
+  font-size: var(--text-xl);
+  line-height: var(--leading-tight);
+}
+
+.text-2xl {
+  font-size: var(--text-2xl);
+  line-height: var(--leading-tight);
+}
+
+.text-3xl {
+  font-size: var(--text-3xl);
+  line-height: var(--leading-tight);
+}
+
+.font-normal {
+  font-weight: var(--font-weight-normal);
+}
+
+.font-medium {
+  font-weight: var(--font-weight-medium);
+}
+
+.font-semibold {
+  font-weight: var(--font-weight-semibold);
+}
+
+.font-bold {
+  font-weight: var(--font-weight-bold);
+}

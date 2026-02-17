@@ -1,0 +1,250 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Typim</title>
+    <meta name="theme-color" content="#1f1c18" />
+    <link rel="manifest" href="/manifest.webmanifest" />
+    <link rel="icon" href="/icons/typim-192.png" />
+    <link rel="apple-touch-icon" href="/icons/typim-192.png" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Source+Sans+3:wght@400;500;600&family=Source+Serif+4:wght@400;600&family=Source+Code+Pro:wght@400;500&display=swap"
+      rel="stylesheet"
+    />
+  </head>
+  <body>
+    <div class="ambient"></div>
+    <main class="app">
+      <header class="topbar">
+        <div class="title-wrap">
+          <input
+            id="doc-title"
+            class="doc-title"
+            type="text"
+            value="Untitled"
+            aria-label="Document title"
+          />
+        </div>
+        <div class="actions">
+          <button id="trash-btn" class="trash-btn" aria-label="Clear editor" title="Clear all text">
+            <svg viewBox="0 0 24 24">
+              <polyline points="3 6 5 6 21 6" />
+              <path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6" />
+              <path d="M10 11v6" />
+              <path d="M14 11v6" />
+              <path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2" />
+            </svg>
+          </button>
+          <button id="focus-btn" class="ghost">Focus</button>
+          <button id="menu-btn" class="ghost" aria-expanded="false" aria-controls="action-menu">
+            Menu
+          </button>
+        </div>
+      </header>
+
+      <nav id="action-menu" class="action-menu" aria-hidden="true">
+        <button id="menu-open" class="menu-item">
+          <span class="menu-item-label">Open</span
+          ><span class="menu-item-shortcut">Ctrl/Cmd + O</span>
+        </button>
+        <button id="menu-save" class="menu-item">
+          <span class="menu-item-label">Save</span
+          ><span class="menu-item-shortcut">Ctrl/Cmd + S</span>
+        </button>
+        <button id="menu-split" class="menu-item">
+          <span class="menu-item-label">Split</span
+          ><span class="menu-item-shortcut">Ctrl/Cmd + \</span>
+        </button>
+        <button id="menu-vim" class="menu-item">
+          <span class="menu-item-label">Vim: Off</span
+          ><span class="menu-item-shortcut">Ctrl/Cmd + Shift + V</span>
+        </button>
+        <button id="menu-livemd" class="menu-item">
+          <span class="menu-item-label">Live MD: Off</span
+          ><span class="menu-item-shortcut">Ctrl/Cmd + Shift + L</span>
+        </button>
+        <button id="menu-theme" class="menu-item">
+          <span class="menu-item-label">Theme: Light</span
+          ><span class="menu-item-shortcut">Ctrl/Cmd + Shift + D</span>
+        </button>
+        <button id="menu-fonts" class="menu-item">
+          <span class="menu-item-label">Fonts</span
+          ><span class="menu-item-shortcut">Ctrl/Cmd + Shift + M</span>
+        </button>
+        <button id="menu-shortcuts" class="menu-item">
+          <span class="menu-item-label">Shortcuts</span
+          ><span class="menu-item-shortcut">Ctrl/Cmd + /</span>
+        </button>
+        <button id="menu-share" class="menu-item">
+          <span class="menu-item-label">Share</span
+          ><span class="menu-item-shortcut">Ctrl/Cmd + Shift + S</span>
+        </button>
+      </nav>
+
+      <section class="workspace">
+        <div class="pane editor-pane">
+          <div id="editor" class="editor" aria-label="Markdown editor"></div>
+        </div>
+        <div
+          id="split-resizer"
+          class="split-resizer"
+          role="separator"
+          aria-orientation="vertical"
+          aria-label="Resize editor and preview panes"
+          aria-valuemin="30"
+          aria-valuemax="70"
+          aria-valuenow="50"
+          tabindex="0"
+        ></div>
+        <div class="pane preview-pane">
+          <article id="preview" class="preview"></article>
+        </div>
+      </section>
+
+      <footer class="statusbar">
+        <span id="status-left">0 words</span>
+        <span id="status-right">0 chars · 0 lines</span>
+      </footer>
+
+      <div id="focus-hint" class="focus-hint">Focus mode · Ctrl+Esc to exit</div>
+
+      <!-- Share Modal -->
+      <div id="share-modal" class="modal" aria-hidden="true">
+        <div class="modal-card" role="dialog" aria-modal="true">
+          <div class="modal-header">
+            <h2>Share note</h2>
+            <button id="share-close" class="ghost">Close</button>
+          </div>
+          <div class="modal-body">
+            <label class="field">
+              <span>Share type</span>
+              <select id="share-type">
+                <option value="static">Static (snapshot)</option>
+                <option value="live">Live (auto-update)</option>
+              </select>
+            </label>
+            <label class="field">
+              <span>Privacy</span>
+              <select id="share-privacy">
+                <option value="secret">Secret</option>
+                <option value="public">Public</option>
+              </select>
+            </label>
+            <div class="share-actions">
+              <button id="share-create" class="ghost">Create link</button>
+              <button id="share-update" class="ghost" disabled>Update live link</button>
+            </div>
+            <div class="share-result">
+              <input id="share-url" type="text" readonly placeholder="Share URL" />
+              <button id="share-copy" class="ghost" disabled>Copy</button>
+            </div>
+            <p id="share-error" class="share-error"></p>
+            <p class="share-hint">Links expire in 4 hours.</p>
+          </div>
+        </div>
+      </div>
+
+      <!-- Font Modal -->
+      <div id="font-modal" class="modal" aria-hidden="true">
+        <div class="modal-card" role="dialog" aria-modal="true">
+          <div class="modal-header">
+            <h2>Fonts</h2>
+            <button id="font-close" class="ghost">Close</button>
+          </div>
+          <div class="modal-body">
+            <label class="field">
+              <span>Body font</span>
+              <select id="font-body">
+                <option value="serif">Source Serif 4</option>
+                <option value="sans">Source Sans 3</option>
+              </select>
+            </label>
+            <label class="field">
+              <span>Monospace font</span>
+              <select id="font-mono">
+                <option value="plex">Source Code Pro</option>
+                <option value="system">System Mono</option>
+              </select>
+            </label>
+            <p class="modal-hint">Fonts are saved locally.</p>
+          </div>
+        </div>
+      </div>
+
+      <!-- Shortcuts Modal -->
+      <div id="shortcuts-modal" class="modal" aria-hidden="true">
+        <div class="modal-card" role="dialog" aria-modal="true">
+          <div class="modal-header">
+            <h2>Shortcuts</h2>
+            <button id="shortcuts-close" class="ghost">Close</button>
+          </div>
+          <div class="modal-body">
+            <div class="shortcut-list">
+              <div class="shortcut-row">
+                <span class="shortcut-key">Ctrl/Cmd + O</span>
+                <span class="shortcut-action">Open file</span>
+              </div>
+              <div class="shortcut-row">
+                <span class="shortcut-key">Ctrl/Cmd + S</span>
+                <span class="shortcut-action">Save file</span>
+              </div>
+              <div class="shortcut-row">
+                <span class="shortcut-key">Ctrl/Cmd + Shift + S</span>
+                <span class="shortcut-action">Share note</span>
+              </div>
+              <div class="shortcut-row">
+                <span class="shortcut-key">Ctrl/Cmd + \\</span>
+                <span class="shortcut-action">Single/Split view</span>
+              </div>
+              <div class="shortcut-row">
+                <span class="shortcut-key">Ctrl/Cmd + Shift + F</span>
+                <span class="shortcut-action">Focus mode</span>
+              </div>
+              <div class="shortcut-row">
+                <span class="shortcut-key">Ctrl + Esc</span>
+                <span class="shortcut-action">Exit focus mode</span>
+              </div>
+              <div class="shortcut-row">
+                <span class="shortcut-key">Ctrl/Cmd + Shift + V</span>
+                <span class="shortcut-action">Toggle Vim</span>
+              </div>
+              <div class="shortcut-row">
+                <span class="shortcut-key">Ctrl/Cmd + Shift + D</span>
+                <span class="shortcut-action">Toggle theme</span>
+              </div>
+              <div class="shortcut-row">
+                <span class="shortcut-key">Ctrl/Cmd + Shift + M</span>
+                <span class="shortcut-action">Fonts</span>
+              </div>
+              <div class="shortcut-row">
+                <span class="shortcut-key">Ctrl/Cmd + /</span>
+                <span class="shortcut-action">Shortcuts</span>
+              </div>
+              <div class="shortcut-row">
+                <span class="shortcut-key">F1</span>
+                <span class="shortcut-action">Shortcuts</span>
+              </div>
+              <div class="shortcut-row">
+                <span class="shortcut-key">Ctrl/Cmd + Shift + L</span>
+                <span class="shortcut-action">Toggle Live Markdown</span>
+              </div>
+              <div class="shortcut-row">
+                <span class="shortcut-key">Ctrl + W</span>
+                <span class="shortcut-action"
+                  >Delete previous word in editor (fallback: Alt+Backspace)</span
+                >
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </main>
+
+    <input id="file-input" type="file" accept=".md,.markdown,.txt" hidden />
+
+    <script type="module" src="/main.ts"></script>
+  </body>
+</html>
