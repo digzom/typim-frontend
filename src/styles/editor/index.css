@@ -1,0 +1,42 @@
+/**
+ * Editor style split artifact
+ */
+
+.editor-pane,
+.editor,
+.cm-editor {
+  min-width: 0;
+}
+
+[data-layout='mobile'][data-mobile-pane='editor'] .editor-pane {
+  display: flex;
+}
+
+.cm-md-delim-hidden {
+  display: inline-block;
+  width: 0;
+  opacity: 0;
+  pointer-events: none;
+  user-select: none;
+}
+
+.cm-md-delim-reveal {
+  opacity: 1;
+}
+
+.cm-content .cm-strong {
+  font-weight: 600;
+}
+
+.cm-content .cm-emphasis {
+  font-style: italic;
+}
+
+.cm-content .cm-strikethrough {
+  text-decoration: line-through;
+}
+
+.cm-content .cm-inline-code,
+.cm-content .cm-monospace {
+  font-family: var(--font-mono);
+}
